@@ -477,7 +477,7 @@ window.addEventListener("error", function (e) {
     </div>
   </div>
 
-  <div class="tc-status" id="tc-status">Connect a wallet or paste a PossessioPayments address to see live values.</div>
+  <div class="tc-status" id="tc-status">Connect a wallet or paste your Taproot Payments contract address to see live values.</div>
 </section>
 
 <nav class="tabs" id="tabs"></nav>
@@ -507,8 +507,9 @@ window.addEventListener("error", function (e) {
 </style>
 
 <footer>
-  <div>POSSESSIO PROTOCOL · OPERATOR CONSOLE · ARCHITECT-RATIFIED</div>
-  <div class="arch">Per Amendment VII — terminal output substantiates state. This console encodes calldata, submits transactions, and reads on-chain state via eth_call; it does not certify deployments.</div>
+  <div>TAPROOT · NON-CUSTODIAL USDC PAYMENTS · YOU OWN THE MONEY</div>
+  <div class="arch">This console encodes calldata, submits transactions, and reads on-chain state via eth_call. It never holds your funds and does not certify deployments — your keys, your money.</div>
+  <div style="margin-top:10px;font-size:12px;letter-spacing:.02em;color:#2563eb;font-weight:600;">shipped by possessio protocol</div>
 </footer>
 
 <script>
@@ -763,9 +764,9 @@ const CONTRACTS = [
 
   // 3. PossessioPayments — Tier 1 inbound payment rails
   {
-    key:"PAY", label:"PossessioPayments", title:"PossessioPayments (Tier 1)",
+    key:"PAY", label:"Payments", title:"Taproot Payments",
     chain:"Base", chainId:8453,
-    desc:"Inbound payment rails complementing PayPal-class providers. AccessControl with OWNER_ROLE / OPERATOR_ROLE / GUARDIAN_ROLE. Pools USDC, refills DAI working-capital reserve to merchant ceiling, then splits remainder via cbEthBps (default 50/50, configurable 10%-90%): cbETH leg (USDC→WETH→cbETH multi-hop via Uniswap V3 + Aerodrome Slipstream) and Morpho USDC leg (Bitwise-curated Morpho Blue ERC4626 vault).",
+    desc:"Self-custody USDC payments for merchants — you take money directly on-chain, and no processor can freeze, reverse, or deplatform you. Access is role-gated (owner / operator / guardian). Incoming USDC pools in your contract; you keep a ready dollar reserve up to a ceiling you set, and the rest is put to work earning yield on a dial you control — split between My Savings (staking) and My Lending.",
     access:"AccessControl (OWNER_ROLE self-admin; OPERATOR / GUARDIAN granted by OWNER)",
     categories:[
       { id:"policy", label:"Inflow Policy", blurb:"Set how incoming USDC flows — yield split, reserve target, batch size",
@@ -2548,7 +2549,7 @@ async function refreshTreasury(opts) {
     liquidEl.textContent  = "$—";
     earningEl.textContent = "$—";
     statusEl.className    = "tc-status";
-    statusEl.textContent  = "Paste a PossessioPayments address to see live values.";
+    statusEl.textContent  = "Paste your Taproot Payments contract address to see live values.";
     return;
   }
 
