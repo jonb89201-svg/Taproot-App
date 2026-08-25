@@ -6,7 +6,11 @@
 <meta name="theme-color" content="#ffffff" />
 <title>Taproot — non-custodial USDC payments</title>
 <meta name="base:app_id" content="6a4b1d5d02e2e34e3e7fbd30" />
-<meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://possessio.io/og.png","button":{"title":"Open Possessio","action":{"type":"launch_miniapp","name":"Possessio","url":"https://possessio.io","splashImageUrl":"https://possessio.io/splash-200.png","splashBackgroundColor":"#0B1220"}}}' />
+<!-- Farcaster mini-app embed removed for Taproot 2026-08-25: the carried-over
+     tag advertised POSSESSIO (possessio.io) and would route anyone who saw
+     Taproot in a Farcaster client into that app. Taproot is a standalone
+     payments app. If Taproot is ever published AS a Farcaster mini app, add a
+     fresh fc:miniapp tag here pointing at Taproot's own URL/branding. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
@@ -2162,10 +2166,38 @@ window.PossessioEvm = {
   cached: null,
   address: null,
 
+  /// Every wallet that announced itself via EIP-6963 (populated by the listener
+  /// installed just below, at page load). This is how modern smart wallets —
+  /// Coinbase Smart Wallet, MetaMask, Rabby, Rainbow — advertise, regardless of
+  /// country. Connecting a wallet is permissionless and has no geo-gate, which
+  /// is exactly why Taproot works internationally where card processors don't.
+  discovered: [],
+
+  /// Pick an injected/smart-wallet provider: prefer an EIP-6963 announcement
+  /// (multiple → prefer Coinbase Smart Wallet, else the first), then fall back
+  /// to the legacy window.ethereum global.
+  pickInjected() {
+    var d = this.discovered;
+    if (d.length === 1) return d[0].provider;
+    if (d.length > 1) {
+      var cb = d.find(function(x){
+        var n = (x.info && (x.info.rdns || "") + " " + (x.info.name || "")).toLowerCase();
+        return n.indexOf("coinbase") !== -1;
+      });
+      return (cb || d[0]).provider;
+    }
+    return (typeof window !== "undefined" && window.ethereum) || null;
+  },
+
   /// Async. Resolves the provider, importing the mini-app SDK only if needed.
   async get() {
     if (this.cached) return this.cached;
-    if (window.ethereum) return (this.cached = window.ethereum);
+    // 1. Any injected / smart wallet (EIP-6963 first, then legacy window.ethereum).
+    var inj = this.pickInjected();
+    if (inj) return (this.cached = inj);
+    // 2. Farcaster mini app — ONLY when the page is genuinely open inside one.
+    //    This resolves a wallet the FC host already provides; it NEVER redirects
+    //    a normal browser (or an Overgrow user) into Farcaster.
     try {
       const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk");
       if (!(await sdk.isInMiniApp?.())) return null;
@@ -2178,10 +2210,28 @@ window.PossessioEvm = {
 
   /// Sync. Only valid after get() has resolved once — for the handful of call
   /// sites that are not async and only run post-connect.
-  now() { return this.cached || window.ethereum || null; },
+  now() { return this.cached || this.pickInjected(); },
 
   clear() { this.cached = null; this.address = null; },
 };
+
+// EIP-6963 provider discovery — collect every wallet that announces itself, so
+// Connect Wallet finds any smart wallet (Coinbase Smart Wallet, MetaMask, Rabby,
+// Rainbow, …) instead of only the single legacy window.ethereum. Additive and
+// safe: if nothing announces, get() falls back to window.ethereum exactly as
+// before. Runs at load; wallets may also announce later, and the listener keeps
+// collecting, so a wallet unlocked after page load is still found on connect.
+try {
+  window.addEventListener("eip6963:announceProvider", function (e) {
+    var det = e && e.detail;
+    if (!det || !det.provider || !det.info) return;
+    var seen = window.PossessioEvm.discovered.some(function (x) {
+      return x.info && x.info.uuid === det.info.uuid;
+    });
+    if (!seen) window.PossessioEvm.discovered.push(det);
+  });
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+} catch (_) {}
 
 async function getEvmProvider() { return window.PossessioEvm.get(); }
 
@@ -2189,7 +2239,7 @@ async function connectWallet() {
   try {
     const eth = await getEvmProvider();
     if (!eth) {
-      alert("No wallet found. Open this page in a wallet browser (MetaMask, Rabby) or inside Farcaster.");
+      alert("No wallet detected. Open Taproot in your wallet's in-app browser, or install a wallet such as Coinbase Wallet, MetaMask, or Rabby, then reload.");
       return;
     }
     state.provider = new ethers.BrowserProvider(eth);
