@@ -334,9 +334,9 @@ footer .arch{color:var(--ink-dim);margin-top:6px;font-size:11px;line-height:1.5}
 .split-readout .split-left-pct,.split-readout .split-right-pct{font-weight:700;font-size:18px;color:var(--ink,#0f172a)}
 .split-readout .split-left-lbl,.split-readout .split-right-lbl{color:var(--ink-faint,#64748b);font-size:12px}
 .split-range{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:999px;outline:none;cursor:pointer;background:var(--line,#e2e8f0)}
-.split-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid var(--oxide,#2563eb);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:grab}
+.split-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid var(--oxide,#2b7b17);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:grab}
 .split-range::-webkit-slider-thumb:active{cursor:grabbing}
-.split-range::-moz-range-thumb{width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid var(--oxide,#2563eb);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:grab}
+.split-range::-moz-range-thumb{width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid var(--oxide,#2b7b17);box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:grab}
 .split-ends{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--ink-faint,#94a3b8)}
 
 /* Treasury card — positions with send */
@@ -348,11 +348,11 @@ footer .arch{color:var(--ink-dim);margin-top:6px;font-size:11px;line-height:1.5}
 .tc-pos-sub{font-size:11px;font-weight:400;color:var(--ink-faint,#94a3b8);font-family:ui-monospace,monospace}
 .tc-pos-bal{font-size:17px;font-weight:700;color:var(--ink,#0f172a)}
 .tc-pos-bar{height:8px;border-radius:999px;background:var(--line,#e2e8f0);overflow:hidden;margin-bottom:8px}
-.tc-pos-fill{display:block;height:100%;width:0%;background:var(--oxide,#2563eb);border-radius:999px;transition:width .3s ease}
+.tc-pos-fill{display:block;height:100%;width:0%;background:var(--oxide,#2b7b17);border-radius:999px;transition:width .3s ease}
 .tc-pos-send{display:flex;gap:8px}
 .tc-pos-addr{flex:1;min-width:0;padding:10px 12px;border:1.5px solid var(--line,#e2e8f0);border-radius:8px;font-family:ui-monospace,monospace;font-size:12px;background:var(--surface,#fff)}
-.tc-pos-addr:focus{border-color:var(--oxide,#2563eb);outline:none}
-.tc-pos-btn{padding:10px 18px;background:var(--oxide,#2563eb);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
+.tc-pos-addr:focus{border-color:var(--oxide,#2b7b17);outline:none}
+.tc-pos-btn{padding:10px 18px;background:var(--oxide,#2b7b17);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
 .tc-pos-btn:disabled{opacity:.5;cursor:not-allowed}
 .tc-pos-status{margin-top:6px;font-size:12px;min-height:1px}
 .tc-pos-status.ok{color:#16a34a}
@@ -404,7 +404,7 @@ window.addEventListener("error", function (e) {
 
 <header class="console-head">
   <div class="row">
-    <div class="brand" style="display:flex;align-items:center"><img src="taproot-logo.png" alt="Taproot" style="height:36px;width:auto;display:block;border-radius:7px"/></div>
+    <div class="brand" style="flex-basis:100%;display:flex;justify-content:center;margin:4px 0 12px"><img src="taproot-logo.png" alt="Taproot" style="width:min(88%,400px);height:auto;display:block;border-radius:14px"/></div>
     <span class="tag oxide" id="status-tag">Pre-deploy</span>
     <div class="spacer"></div>
     <select class="chain-sel" id="chain-sel">
@@ -1759,7 +1759,7 @@ function buildFnCard(c, fn) {
         // fill the track so it reads as a bar
         const min = parseInt(range.dataset.sliderMin,10), max = parseInt(range.dataset.sliderMax,10);
         const fillPct = ((right - min) / (max - min)) * 100;
-        range.style.background = `linear-gradient(90deg, var(--oxide,#2563eb) ${fillPct}%, var(--line,#e2e8f0) ${fillPct}%)`;
+        range.style.background = `linear-gradient(90deg, var(--oxide,#2b7b17) ${fillPct}%, var(--line,#e2e8f0) ${fillPct}%)`;
       };
       range.addEventListener("input", paint);
       paint();
@@ -1817,7 +1817,7 @@ function renderPanels() {
     <div class="desc">${escapeHtml(c.desc)}</div>
     <label>Deployed address (chain ${c.chainId})</label>
     <input class="addr" data-contract="${c.key}" placeholder="0x… (not yet deployed)" value="${escapeHtml(state.addresses[c.key] || "")}" />
-    <button class="connect-contract-btn" data-contract="${c.key}" style="margin-top:8px;padding:10px 16px;background:var(--accent,#2563eb);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;width:100%;">${isConnected(c.key) ? "Connected ✓" : "Connect Contract"}</button>
+    <button class="connect-contract-btn" data-contract="${c.key}" style="margin-top:8px;padding:10px 16px;background:var(--oxide,#2b7b17);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;width:100%;">${isConnected(c.key) ? "Connected ✓" : "Connect Contract"}</button>
     <div class="cc-status" data-contract="${c.key}" style="margin-top:6px;font-size:12px;color:${isConnected(c.key) ? "#16a34a" : "var(--ink-faint,#64748b)"};">${isConnected(c.key) ? "Contract connected ✓ — code verified on chain " + c.chainId + ". Reads enabled." : ""}</div>
   `;
   meta.querySelector("input.addr").addEventListener("input", e => {
@@ -2792,7 +2792,7 @@ refreshTreasury();
 .gate-kv .k{color:var(--ink-faint)}
 .gate-box input.gate-addr{width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-family:'IBM Plex Mono',monospace;border-radius:8px;color:var(--ink);margin-bottom:8px}
 .gate-box button{font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
-.gate-box button.primary{background:var(--oxide,#2563eb);color:#fff;border-color:transparent}
+.gate-box button.primary{background:var(--oxide,#2b7b17);color:#fff;border-color:transparent}
 .gate-box button:disabled{opacity:.45;cursor:not-allowed}
 .gate-hidden{display:none}
 .gate-note{font-size:12px;padding:10px 12px;border-radius:8px;margin-top:10px;line-height:1.5}
@@ -3441,7 +3441,7 @@ if (__lrLaunch) __lrLaunch.addEventListener("click",function(){LaunchRail.askEnv
 <style>
   #desk-view{position:fixed;inset:0;z-index:160;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
     --ground:#F2F4F8;--card:#FFFFFF;--dink:#0B1220;--dink-dim:#5A6576;--dink-faint:#8A93A3;
-    --dline:#E6E9F0;--dline-soft:#EEF1F6;--dacc:#2F55F7;--dacc-ink:#FFFFFF;--dacc-soft:#EAEEFE;
+    --dline:#E6E9F0;--dline-soft:#EEF1F6;--dacc:#2b7b17;--dacc-ink:#FFFFFF;--dacc-soft:#EAEEFE;
     --up:#12A150;--up-soft:#E4F5EC;--down:#E5484D;--down-soft:#FCE9E9;
     --cockpit:#0E1424;--cockpit-ink:#F3F6FF;--cockpit-dim:#8FA0C8;--cockpit-line:#232C44;
     --stop:#E5484D;--stop-soft:#FCECEC;--dmono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
@@ -3450,7 +3450,7 @@ if (__lrLaunch) __lrLaunch.addEventListener("click",function(){LaunchRail.askEnv
   #desk-view[hidden]{display:none}
   @media (prefers-color-scheme:dark){#desk-view{
     --ground:#080B12;--card:#0F141F;--dink:#EAEFF7;--dink-dim:#9AA6B8;--dink-faint:#69748A;
-    --dline:#1C2434;--dline-soft:#161D2A;--dacc:#5D7BFF;--dacc-ink:#0A0E16;--dacc-soft:#18203A;
+    --dline:#1C2434;--dline-soft:#161D2A;--dacc:#6cb03f;--dacc-ink:#0A0E16;--dacc-soft:#18203A;
     --up:#3ED07E;--up-soft:#122A1E;--down:#FF6168;--down-soft:#2C1618;
     --cockpit:#05070C;--cockpit-ink:#EAF0FF;--cockpit-dim:#7C8CB4;--cockpit-line:#161E31;
     --stop:#FF6168;--stop-soft:#2C1618;--dshadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35)}}
