@@ -778,7 +778,7 @@ const CONTRACTS = [
   {
     key:"PAY", label:"Payments", title:"Taproot Payments",
     chain:"Base", chainId:8453,
-    desc:"A payment rail you own — the bare-minimum infrastructure to take USDC directly on-chain, non-custodial. Zero protocol fees: Taproot takes nothing, and no processor can freeze, reverse, or deplatform you. It works alongside Stripe rather than replacing it — keep Stripe for what it allows; use Taproot for USDC and for what Stripe bans (cannabis, seeds, grow supply, even grow education). Access is role-gated (owner / operator / guardian). Incoming USDC pools in your contract; optionally, on your command, idle balances can earn yield — My Savings (staking) or My Lending — still fee-free at the protocol layer.",
+    desc:"A payment rail you own — the bare-minimum infrastructure to take USDC directly on-chain, non-custodial. Zero protocol fees: Taproot takes nothing, and no processor can freeze, reverse, or deplatform you. It works alongside your existing payment processors, not as a replacement — accept USDC directly from any customer, anywhere, with no chargebacks and no middleman. Access is role-gated (owner / operator / guardian). Incoming USDC pools in your contract; optionally, on your command, idle balances can earn yield — My Savings (staking) or My Lending — still fee-free at the protocol layer.",
     access:"AccessControl (OWNER_ROLE self-admin; OPERATOR / GUARDIAN granted by OWNER)",
     categories:[
       { id:"policy", label:"Inflow Policy", blurb:"Set how incoming USDC flows — yield split, reserve target, batch size",
@@ -2219,7 +2219,7 @@ window.PossessioEvm = {
     if (inj) return (this.cached = inj);
     // 2. Farcaster mini app — ONLY when the page is genuinely open inside one.
     //    This resolves a wallet the FC host already provides; it NEVER redirects
-    //    a normal browser (or an Overgrow user) into Farcaster.
+    //    a normal browser user into Farcaster.
     try {
       const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk");
       if (!(await sdk.isInMiniApp?.())) return null;
