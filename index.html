@@ -47,10 +47,23 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 a{color:var(--oxide);text-decoration:none;font-weight:500}
 a:hover{text-decoration:underline}
 
-header.console-head{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--line);padding:14px 16px}
-.console-head .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.brand{font-weight:700;font-size:18px;letter-spacing:-0.02em;color:var(--oxide)}
+header.console-head{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--line);padding:14px 16px;overflow:hidden}
+.console-head .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:2}
+.brand{font-weight:700;font-size:18px;letter-spacing:-0.02em;color:var(--oxide);position:relative;z-index:2}
 .brand small{color:var(--ink-faint);font-weight:500;margin-left:8px;font-size:12px;letter-spacing:0}
+/* Taproot living logo + roots */
+.brand-wrap{position:relative;flex-basis:100%;display:flex;justify-content:center;margin:4px 0 12px}
+.brand-wrap img{width:min(88%,400px);height:auto;display:block;position:relative;z-index:2;
+  filter:drop-shadow(0 0 8px rgba(43,123,23,.25));
+  animation:logo-breathe 4.8s ease-in-out infinite}
+@keyframes logo-breathe{
+  0%,100%{filter:drop-shadow(0 0 6px rgba(43,123,23,.22)); transform:scale(1)}
+  50%{filter:drop-shadow(0 0 16px rgba(43,123,23,.45)); transform:scale(1.015)}
+}
+#root-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:.85}
+@media (prefers-reduced-motion:reduce){
+  .brand-wrap img{animation:none!important;filter:drop-shadow(0 0 6px rgba(43,123,23,.25))}
+}
 .tag{display:inline-block;background:var(--surface-3);border:none;padding:4px 10px;font-size:11px;font-weight:500;color:var(--ink-dim);border-radius:var(--radius-pill);white-space:nowrap;letter-spacing:0}
 .tag.oxide{background:var(--oxide-faint);color:var(--oxide-dim)}
 .tag.danger{background:var(--danger-faint);color:var(--danger-dim)}
@@ -415,8 +428,11 @@ window.addEventListener("error", function (e) {
 
 
 <header class="console-head">
+  <canvas id="root-canvas" aria-hidden="true"></canvas>
   <div class="row">
-    <div class="brand" style="flex-basis:100%;display:flex;justify-content:center;margin:4px 0 12px"><img src="taproot-logo.png?v=4" alt="Taproot" style="width:min(88%,400px);height:auto;display:block"/></div>
+    <div class="brand-wrap">
+      <img src="taproot-logo.png?v=4" alt="Taproot"/>
+    </div>
     <span class="tag oxide" id="status-tag">Pre-deploy</span>
     <div class="spacer"></div>
     <select class="chain-sel" id="chain-sel">
@@ -5004,6 +5020,104 @@ try {
     window.PossessioMiniApp.reason = String(e && e.message || e);
     if (window.dbgLog) window.dbgLog("[MINIAPP] unavailable: " + window.PossessioMiniApp.reason);
   }
+</script>
+
+<!-- Taproot living roots — high-performance looping canvas animation -->
+<script>
+(function(){
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) return;
+
+  const canvas = document.getElementById("root-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d", { alpha: true });
+  let W = 0, H = 0, dpr = 1;
+  const roots = [];
+  const MAX_ROOTS = 7;
+  const GREEN = "43,123,23";
+
+  function resize(){
+    const head = document.querySelector("header.console-head");
+    if (!head) return;
+    const r = head.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function makeRoot(){
+    const side = Math.random() < 0.5 ? -1 : 1;
+    return {
+      x: W * (0.35 + Math.random() * 0.3),
+      y: H * 0.55 + Math.random() * H * 0.25,
+      angle: (Math.PI / 2) + side * (0.4 + Math.random() * 0.9),
+      len: 0,
+      maxLen: 40 + Math.random() * 70,
+      speed: 0.18 + Math.random() * 0.28,
+      thickness: 0.7 + Math.random() * 1.4,
+      life: 0,
+      maxLife: 280 + Math.random() * 220,
+      sway: (Math.random() - 0.5) * 0.012,
+      phase: Math.random() * Math.PI * 2,
+      branches: []
+    };
+  }
+
+  function spawn(){
+    while (roots.length < MAX_ROOTS) roots.push(makeRoot());
+  }
+
+  function drawRoot(r, t){
+    const steps = Math.max(6, Math.floor(r.len / 3));
+    ctx.beginPath();
+    let x = r.x, y = r.y;
+    ctx.moveTo(x, y);
+    for (let i = 1; i <= steps; i++){
+      const p = i / steps;
+      const a = r.angle + Math.sin(t * 0.0012 + r.phase + p * 3) * 0.35 + r.sway * p * 18;
+      x += Math.cos(a) * (r.len / steps);
+      y += Math.sin(a) * (r.len / steps);
+      ctx.lineTo(x, y);
+    }
+    const alpha = Math.min(0.55, (r.life / 40) * (1 - r.life / r.maxLife) * 1.6);
+    ctx.strokeStyle = `rgba(${GREEN},${alpha})`;
+    ctx.lineWidth = r.thickness * (1 - r.life / r.maxLife * 0.4);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    // soft glow pass
+    ctx.strokeStyle = `rgba(${GREEN},${alpha * 0.35})`;
+    ctx.lineWidth = r.thickness * 3.2;
+    ctx.stroke();
+  }
+
+  let last = performance.now();
+  function frame(now){
+    const dt = Math.min(32, now - last);
+    last = now;
+    ctx.clearRect(0, 0, W, H);
+
+    spawn();
+    for (let i = roots.length - 1; i >= 0; i--){
+      const r = roots[i];
+      r.life += dt * 0.06;
+      if (r.len < r.maxLen) r.len += r.speed * (dt * 0.06);
+      r.angle += Math.sin(now * 0.0008 + r.phase) * 0.0015;
+      drawRoot(r, now);
+      if (r.life > r.maxLife) roots.splice(i, 1);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener("resize", () => { resize(); });
+  resize();
+  requestAnimationFrame(frame);
+})();
 </script>
 </body>
 </html>
