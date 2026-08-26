@@ -2826,18 +2826,14 @@ updateWalletUI();
 refreshTreasury();
 </script>
 
-<!-- env chooser -->
+<!-- env chooser — retained as a DOM node for open()/closeEnv() references; Taproot is mainnet-only, so askEnv() bypasses it straight to open('main'). -->
 <div class="lr-modal" id="lr-envmodal" hidden>
   <div class="lr-sheet">
-    <h3>Where do you want to launch?</h3>
-    <p class="sub">Practice on a testnet first — it's free and safe. Go to mainnet when you're ready for the real thing.</p>
-    <button class="lr-envchoice" onclick="LaunchRail.open('test')">
-      <span class="ic t">TEST</span>
-      <span><div class="nm">Testnet</div><div class="ds">A practice run. No real funds, no real fee. Safe to forge-test.</div></span>
-    </button>
+    <h3>Launch on Base</h3>
+    <p class="sub">Your contract deploys on Base mainnet — real network, real ownership.</p>
     <button class="lr-envchoice" onclick="LaunchRail.open('main')">
       <span class="ic m">MAIN</span>
-      <span><div class="nm">Mainnet</div><div class="ds">The real network. Real funds, real fee, real ownership.</div></span>
+      <span><div class="nm">Base mainnet</div><div class="ds">The real network. Real funds, real fee, real ownership.</div></span>
     </button>
     <button class="lr-cancel" onclick="LaunchRail.closeEnv()">Cancel</button>
   </div>
@@ -3004,7 +3000,7 @@ refreshTreasury();
   function goOk(ok){var g=document.getElementById("lr-go");if(g)g.disabled=!ok;}
 
   window.LaunchRail={
-    askEnv:function(){document.getElementById("lr-envmodal").hidden=false;},
+    askEnv:function(){this.open('main');},  // Taproot: mainnet-only. Testnet retired — a payment rail can't be meaningfully tested with Sepolia USDC.
     closeEnv:function(){document.getElementById("lr-envmodal").hidden=true;},
     open:function(env){L={env:env,step:0,contract:null,owner:"baseAccount",safe:"",cfg:{name:"",ticker:"",supply:"",liq:"",perTrade:"",outstanding:"",daily:"",trader:""},dep:"ready",addr:""};
       document.getElementById("lr-envmodal").hidden=true;document.getElementById("lr-view").hidden=false;document.body.style.overflow="hidden";render();},
@@ -3363,6 +3359,7 @@ if (__lrLaunch) __lrLaunch.addEventListener("click",function(){LaunchRail.askEnv
 
   async function check() {
     try {
+      return hide();  // Taproot: testnet retired. Module kept inert (no /api/testnet/drip, no RPC) rather than deleted, to avoid disturbing LaunchRailLive.init wrapping.
       if (!onTestnetRail()) return hide();
       var b = await balances();
       if (!b) return hide();
