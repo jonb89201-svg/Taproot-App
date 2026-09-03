@@ -6,11 +6,16 @@
 <meta name="theme-color" content="#ffffff" />
 <title>Taproot — non-custodial USDC payments</title>
 <meta name="base:app_id" content="6a8e263e7dcb78d95044891a" />
-<!-- Farcaster mini-app embed removed for Taproot 2026-08-25: the carried-over
-     tag advertised POSSESSIO (possessio.io) and would route anyone who saw
-     Taproot in a Farcaster client into that app. Taproot is a standalone
-     payments app. If Taproot is ever published AS a Farcaster mini app, add a
-     fresh fc:miniapp tag here pointing at Taproot's own URL/branding. -->
+<!-- Restored 2026-09-03, pointed at Taproot's OWN URL/branding (the version
+     removed 2026-08-25 wrongly advertised POSSESSIO and would have routed a
+     Farcaster user who launched Taproot into possessio.io instead). Needed
+     for two things: (1) sdk.isInMiniApp() only resolves true for a page
+     Farcaster's client recognizes as a launched mini app, which requires
+     this manifest tag to exist — without it, Connect Farcaster Wallet below
+     has nothing to detect even when opened inside Farcaster's own browser;
+     (2) Base Builder Rewards' mini-app surface requires the app to actually
+     declare itself as one. -->
+<meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://taproot.possessio.io/assets_base/banner_1200x630.png","button":{"title":"Open Taproot","action":{"type":"launch_miniapp","name":"Taproot","url":"https://taproot.possessio.io","splashImageUrl":"https://taproot.possessio.io/assets_base/icon_1024.png","splashBackgroundColor":"#f4f1e6"}}}' />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
@@ -82,6 +87,14 @@ button.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff
 button.btn.danger:hover{background:var(--danger-dim);border-color:var(--danger-dim)}
 button.btn.read{background:var(--surface);border-color:var(--line);color:var(--ink)}
 button.btn.read:hover{background:var(--surface-2);border-color:var(--line-2)}
+/* Farcaster brand purple (#7c65c1) — distinct from the site's own oxide green,
+   so this button reads as "the Farcaster path" at a glance, not a duplicate
+   Connect Wallet. Disabled state: greyed out + not-allowed cursor, used when
+   the page isn't running inside a Farcaster/Base App context (see
+   connectFarcasterWallet / initFcButtonState). */
+button.btn.farcaster{background:#fff;border-color:#7c65c1;color:#7c65c1}
+button.btn.farcaster:hover{background:#f3f0fa}
+button.btn.farcaster:disabled{background:var(--surface);border-color:var(--line);color:var(--ink-faint);cursor:not-allowed}
 button.btn:disabled{opacity:0.4;cursor:not-allowed}
 
 select.chain-sel{padding:8px 12px;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-pill);font-weight:500}
@@ -440,6 +453,7 @@ window.addEventListener("error", function (e) {
       <option value="1">Ethereum L1</option>
     </select>
     <button class="btn oxide" id="connect-btn">Connect Wallet</button>
+    <button class="btn farcaster" id="connect-fc-btn" title="Connect the wallet your Farcaster or Base App client already provides">Connect Farcaster Wallet</button>
     <button class="btn oxide" id="lr-launch-btn">Launch</button>
     <button class="btn" id="tx-link" type="button">Transactions</button>
   </div>
@@ -2273,6 +2287,35 @@ try {
 
 async function getEvmProvider() { return window.PossessioEvm.get(); }
 
+// Shared tail of both connect paths: given a resolved EIP-1193 provider,
+// request accounts, populate `state`, and wire the live-update listeners.
+// Neither connectWallet() nor connectFarcasterWallet() duplicates this.
+async function _finishEvmConnect(eth) {
+  state.provider = new ethers.BrowserProvider(eth);
+  const accounts = await state.provider.send("eth_requestAccounts", []);
+  state.walletAddr = accounts[0];
+  window.PossessioEvm.address = accounts[0];
+  state.signer = BUILDER.attach(await state.provider.getSigner());
+  const net = await state.provider.getNetwork();
+  state.walletChainId = Number(net.chainId);
+  updateWalletUI();
+
+  // Bind to the provider actually in use, not to window.ethereum — inside a
+  // mini app that global is undefined and these listeners would silently
+  // never attach, leaving the chain pill stale after a network switch.
+  eth.on?.("chainChanged", hex => {
+    state.walletChainId = parseInt(hex, 16);
+    updateWalletUI();
+  });
+  eth.on?.("accountsChanged", accs => {
+    state.walletAddr = accs[0] || null;
+    updateWalletUI();
+  });
+}
+
+// Browser / smart-wallet path: injected wallet first (EIP-6963, then legacy
+// window.ethereum), falling back to the Farcaster mini-app SDK only if
+// nothing is injected AND the page is genuinely running inside one.
 async function connectWallet() {
   try {
     const eth = await getEvmProvider();
@@ -2280,51 +2323,75 @@ async function connectWallet() {
       alert("No wallet detected. Open Taproot in your wallet's in-app browser, or install a wallet such as Coinbase Wallet, MetaMask, or Rabby, then reload.");
       return;
     }
-    state.provider = new ethers.BrowserProvider(eth);
-    const accounts = await state.provider.send("eth_requestAccounts", []);
-    state.walletAddr = accounts[0];
-    window.PossessioEvm.address = accounts[0];
-    state.signer = BUILDER.attach(await state.provider.getSigner());
-    const net = await state.provider.getNetwork();
-    state.walletChainId = Number(net.chainId);
-    updateWalletUI();
-
-    // Bind to the provider actually in use, not to window.ethereum — inside a
-    // mini app that global is undefined and these listeners would silently
-    // never attach, leaving the chain pill stale after a network switch.
-    eth.on?.("chainChanged", hex => {
-      state.walletChainId = parseInt(hex, 16);
-      updateWalletUI();
-    });
-    eth.on?.("accountsChanged", accs => {
-      state.walletAddr = accs[0] || null;
-      updateWalletUI();
-    });
+    await _finishEvmConnect(eth);
   } catch (e) {
     alert("Wallet connect failed: " + (e.message || e));
   }
 }
 
+// Farcaster-specific path (Connect Farcaster Wallet): goes straight to the
+// mini-app SDK's own wallet, skipping the injected-wallet check entirely.
+// This is the explicit, visibly-Farcaster entry point Connect Wallet already
+// falls back to invisibly — kept as its own button so a Farcaster/Base App
+// user sees a wallet path addressed to them by name, and so the mini-app
+// integration is a visible surface of the app, not just an internal fallback.
+async function connectFarcasterWallet() {
+  try {
+    const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk");
+    if (!(await sdk.isInMiniApp?.())) {
+      alert("This connects the wallet your Farcaster or Base App client already provides — open taproot.possessio.io inside Farcaster or Base App to use it. In a regular browser, use Connect Wallet instead.");
+      return;
+    }
+    const eth = (await sdk.wallet.getEthereumProvider?.()) || null;
+    if (!eth) {
+      alert("Farcaster/Base App didn't hand back a wallet provider. Make sure a wallet is set up in your Farcaster or Base App client, then try again.");
+      return;
+    }
+    window.PossessioEvm.cached = eth;
+    await _finishEvmConnect(eth);
+  } catch (e) {
+    alert("Farcaster wallet connect failed: " + (e.message || e));
+  }
+}
+
+// Disable Connect Farcaster Wallet outside a Farcaster/Base App context so it
+// doesn't sit there clickable-but-useless for the vast majority of visitors —
+// checked once at load (sdk.isInMiniApp() is async / does a CDN import), not
+// on every render. Clicking it before this resolves still works correctly;
+// this only changes whether it looks inert while sdk.isInMiniApp() is false.
+(async function initFcButtonState() {
+  const btn = document.getElementById("connect-fc-btn");
+  if (!btn) return;
+  try {
+    const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk");
+    if (await sdk.isInMiniApp?.()) return; // leave it enabled
+  } catch (_) {}
+  btn.disabled = true;
+  btn.title = "Open taproot.possessio.io inside Farcaster or Base App to use this";
+})();
+
 function updateWalletUI() {
   const pill = document.getElementById("wallet-pill");
   const chainPill = document.getElementById("chain-pill");
   const btn = document.getElementById("connect-btn");
+  const fcBtn = document.getElementById("connect-fc-btn");
+  function disconnect() {
+    state.walletAddr = null; state.signer = null; state.walletChainId = null; state.provider = null;
+    window.PossessioEvm.address = null; window.PossessioEvm.cached = null;
+    updateWalletUI();
+  }
   if (state.walletAddr) {
     pill.textContent = short(state.walletAddr);
     pill.classList.add("live");
     btn.textContent = "Disconnect";
-    btn.onclick = () => {
-      state.walletAddr = null; state.signer = null; state.walletChainId = null; state.provider = null;
-      window.PossessioEvm.address = null;
-      btn.textContent = "Connect Wallet";
-      btn.onclick = connectWallet;
-      updateWalletUI();
-    };
+    btn.onclick = disconnect;
+    if (fcBtn) { fcBtn.textContent = "Disconnect"; fcBtn.onclick = disconnect; }
   } else {
     pill.textContent = "no wallet";
     pill.classList.remove("live");
     btn.textContent = "Connect Wallet";
     btn.onclick = connectWallet;
+    if (fcBtn) { fcBtn.textContent = "Connect Farcaster Wallet"; fcBtn.onclick = connectFarcasterWallet; }
   }
   chainPill.textContent = state.walletChainId ? `chain ${state.walletChainId}` : `chain ${state.selectedChainId}`;
 }
