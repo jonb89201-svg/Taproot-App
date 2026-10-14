@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#f4f1e6" />
+<title>Seal — Taproot</title>
+<meta name="description" content="Seal a document with your wallet. The file never leaves your device. Free to sign and verify; anchoring on Base costs $0.02 in ETH." />
+<script type="importmap">
+{ "imports": { "viem": "https://cdn.jsdelivr.net/npm/viem@2.21.54/+esm" } }
+</script>
+<style>
+:root{
+  --bg:#f4f1e6; --surface:#fffdf7; --surface-2:#efe9d8;
+  --line:#ddd6c1; --line-2:#cabf9f;
+  --ink:#1e211b; --ink-dim:#5f6553; --ink-faint:#8a8f7c;
+  --oxide:#2b7b17; --oxide-dim:#395e39; --oxide-faint:#d3f0c2;
+  --danger:#dc2626; --danger-faint:#fef2f2;
+  --open:#ab9364; --open-faint:#efe6d2;
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);outline:none;border-radius:10px}
+button{cursor:pointer;padding:10px 14px;background:var(--surface);font-weight:600}
+button.primary{background:var(--oxide);border-color:var(--oxide);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select,textarea{padding:10px 12px;background:var(--surface);width:100%}
+textarea{min-height:88px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+a{color:var(--oxide);font-weight:500}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:var(--oxide);text-decoration:none}
+.brand img{height:30px}
+.spacer{flex:1}
+.addr{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--ink-dim)}
+main{max-width:720px;margin:0 auto;padding:16px}
+.intro{margin:6px 0 14px;color:var(--ink-dim)}
+.intro b{color:var(--ink)}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;padding:9px 6px}
+.tabs button.on{background:var(--oxide-faint);border-color:var(--oxide);color:var(--oxide-dim)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card h2{font-size:15px;margin-bottom:8px}
+.field{margin:10px 0}
+.field label{display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all}
+.hint{font-size:12px;color:var(--ink-faint)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.checks{list-style:none;margin-top:8px}
+.checks li{padding:8px 10px;border-radius:8px;margin:4px 0;border:1px solid var(--line)}
+.checks li.ok{background:var(--oxide-faint);border-color:#b7dca4}
+.checks li.bad{background:var(--danger-faint);border-color:#f3c4c4}
+.checks .n{font-weight:600}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--open-faint);color:#6e5c35}
+.msg{margin-top:10px;font-size:13px}
+.msg.err{color:var(--danger)}
+.msg.ok{color:var(--oxide-dim)}
+.sig{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px dashed var(--line)}
+.fee{font-size:13px;margin:8px 0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <a class="brand" href="./"><img src="taproot-logo.png?v=4" alt="Taproot" /> Seal 🦭</a>
+    <div class="spacer"></div>
+    <select id="chain" aria-label="Network" style="width:auto">
+      <option value="84532">Base Sepolia (beta)</option>
+      <option value="8453">Base</option>
+    </select>
+    <button id="connect">Connect wallet</button>
+    <span class="addr" id="who"></span>
+  </div>
+</header>
+
+<main>
+  <p class="intro"><b>Seal a document with your wallet.</b> The file is hashed on this device and never uploaded.
+  Signing and verifying are free. Anchoring puts proof on Base that your seals existed by a certain block:
+  <b>$0.02 in ETH</b> per anchor transaction plus network gas, however many seals it carries.</p>
+  <p class="msg err" id="top-msg"></p>
+
+  <nav class="tabs" role="tablist">
+    <button data-tab="seal" class="on">Seal</button>
+    <button data-tab="verify">Verify</button>
+    <button data-tab="anchor">Anchor <span class="badge">beta</span></button>
+  </nav>
+
+  <!-- SEAL -->
+  <section id="tab-seal">
+    <div class="card" id="new-card">
+      <h2>1. Choose the document</h2>
+      <div class="field"><input type="file" id="doc" /></div>
+      <div class="field"><label>SHA-256 of the file</label><div class="mono" id="doc-hash">—</div></div>
+      <div class="field"><label for="title">Title</label><input id="title" maxlength="200" placeholder="e.g. Lease, unit 4" /></div>
+      <div class="actions"><button class="primary" id="create" disabled>Create seal</button></div>
+    </div>
+
+    <div class="card" id="seal-card" hidden>
+      <h2>2. Sign</h2>
+      <div class="field"><label>Title</label><div id="s-title"></div></div>
+      <div class="field"><label>Document hash</label><div class="mono" id="s-hash"></div></div>
+      <div class="field"><label>Created</label><div id="s-time"></div></div>
+      <div class="field"><label>Network</label><div id="s-chain"></div></div>
+      <div class="field"><label>Signatures</label><div id="s-sigs"></div></div>
+      <div class="actions">
+        <button class="primary" id="sign">Add my signature</button>
+        <button id="copy-link">Copy link for the next signer</button>
+        <button id="download">Download seal</button>
+        <button id="start-over">New seal</button>
+      </div>
+      <p class="hint" style="margin-top:8px">Each signer opens the link, signs, and passes it on. The seal travels in the link itself, not through a server.</p>
+      <div class="msg" id="seal-msg"></div>
+    </div>
+  </section>
+
+  <!-- VERIFY -->
+  <section id="tab-verify" hidden>
+    <div class="card">
+      <h2>Check a seal</h2>
+      <div class="field"><label>Seal file (.json)</label><input type="file" id="v-seal" accept=".json,application/json" /></div>
+      <div class="field"><label>…or paste a seal link or its JSON</label><textarea id="v-paste"></textarea></div>
+      <div class="field"><label>Document (optional: compare it to the seal)</label><input type="file" id="v-doc" /></div>
+      <div class="actions"><button class="primary" id="v-run">Verify</button></div>
+      <ul class="checks" id="v-out"></ul>
+      <div class="msg" id="v-msg"></div>
+    </div>
+  </section>
+
+  <!-- ANCHOR -->
+  <section id="tab-anchor" hidden>
+    <div class="card">
+      <h2>Anchor seals on Base <span class="badge">beta</span></h2>
+      <p class="hint">One transaction carries a Merkle root of every seal you add. Each seal gets its own proof back.</p>
+      <div class="field"><label>Signed seals (.json, several allowed)</label><input type="file" id="a-files" accept=".json,application/json" multiple /></div>
+      <div id="a-list" class="mono"></div>
+      <div class="fee" id="a-fee">—</div>
+      <div class="actions"><button class="primary" id="a-go" disabled>Anchor</button></div>
+      <div class="msg" id="a-msg"></div>
+      <div class="actions" id="a-done"></div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { createWalletClient, custom, formatEther } from "viem";
+import * as S from "./seal-core.mjs";
+
+const $ = (id) => document.getElementById(id);
+const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
+const msg = (id, text, kind) => { const el = $(id); el.textContent = text || ""; el.className = "msg" + (kind ? " " + kind : ""); };
+const chainHex = (id) => "0x" + id.toString(16);
+const CHAIN_PARAMS = {
+  84532: { chainId: "0x14a34", chainName: "Base Sepolia", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://sepolia.base.org"], blockExplorerUrls: ["https://sepolia.basescan.org"] },
+  8453: { chainId: "0x2105", chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.base.org"], blockExplorerUrls: ["https://basescan.org"] },
+};
+const viemChain = (id) => ({ id, name: S.CHAINS[id].name, nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [S.CHAINS[id].rpc] } } });
+
+const state = { provider: null, address: null, docHash: null, seal: null, batch: [] };
+
+// ---------- wallet (same discovery order as the console: EIP-6963, injected, Farcaster) ----------
+const discovered = [];
+window.addEventListener("eip6963:announceProvider", (e) => { if (e.detail && e.detail.provider) discovered.push(e.detail); });
+window.dispatchEvent(new Event("eip6963:requestProvider"));
+async function getProvider() {
+  if (state.provider) return state.provider;
+  if (discovered.length) {
+    const cb = discovered.find((x) => ((x.info?.rdns || "") + " " + (x.info?.name || "")).toLowerCase().includes("coinbase"));
+    return (state.provider = (cb || discovered[0]).provider);
+  }
+  if (window.ethereum) return (state.provider = window.ethereum);
+  try {
+    const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk");
+    if (await sdk.isInMiniApp?.()) return (state.provider = (await sdk.wallet.getEthereumProvider?.()) || null);
+  } catch {}
+  return null;
+}
+async function connect() {
+  const p = await getProvider();
+  if (!p) throw new Error("No wallet found. Open this page in a wallet browser, or install a wallet.");
+  const [a] = await p.request({ method: "eth_requestAccounts" });
+  state.address = a;
+  $("who").textContent = short(a);
+  $("connect").textContent = "Connected";
+  return a;
+}
+async function onChain(id) {
+  const p = await getProvider();
+  const cur = parseInt(await p.request({ method: "eth_chainId" }), 16);
+  if (cur === id) return;
+  try { await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainHex(id) }] }); }
+  catch (e) {
+    if (e && (e.code === 4902 || /unrecognized|not added/i.test(e.message || ""))) await p.request({ method: "wallet_addEthereumChain", params: [CHAIN_PARAMS[id]] });
+    else throw e;
+  }
+}
+const wallet = async (id) => createWalletClient({ chain: viemChain(id), transport: custom(await getProvider()) });
+getProvider().then((p) => p && p.on && p.on("accountsChanged", (accs) => { state.address = accs[0] || null; $("who").textContent = accs[0] ? short(accs[0]) : ""; }));
+$("connect").onclick = () => connect().catch((e) => msg("seal-msg", e.message, "err"));
+
+// ---------- tabs ----------
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
+  for (const t of ["seal", "verify", "anchor"]) $("tab-" + t).hidden = t !== b.dataset.tab;
+  if (b.dataset.tab === "anchor") refreshFee();
+});
+
+// ---------- seal ----------
+async function hashFile(file) { return S.sha256Hex(await file.arrayBuffer()); }
+function canCreate() { $("create").disabled = !(state.docHash && $("title").value.trim()); }
+$("doc").onchange = async () => {
+  const f = $("doc").files[0]; state.docHash = null; $("doc-hash").textContent = "hashing…";
+  if (f) { state.docHash = await hashFile(f); $("doc-hash").textContent = state.docHash; } else $("doc-hash").textContent = "—";
+  canCreate();
+};
+$("title").oninput = canCreate;
+$("create").onclick = () => {
+  try {
+    state.seal = S.newSeal({ chainId: Number($("chain").value), docHash: state.docHash, title: $("title").value.trim(), sealedAt: Math.floor(Date.now() / 1000) });
+    showSeal();
+  } catch (e) { msg("seal-msg", e.message, "err"); }
+};
+function showSeal() {
+  const s = state.seal;
+  $("new-card").hidden = true; $("seal-card").hidden = false;
+  $("s-title").textContent = s.title;
+  $("s-hash").textContent = s.docHash;
+  $("s-time").textContent = new Date(s.sealedAt * 1000).toLocaleString();
+  $("s-chain").textContent = S.CHAINS[s.chainId].name;
+  const box = $("s-sigs"); box.textContent = "";
+  if (!s.signatures.length) box.textContent = "None yet.";
+  for (const g of s.signatures) {
+    const row = document.createElement("div"); row.className = "sig";
+    const a = document.createElement("span"); a.className = "mono"; a.textContent = g.signer;
+    row.append(a); box.append(row);
+  }
+  if (s.anchor) { const n = document.createElement("div"); n.className = "hint"; n.textContent = "Anchored in transaction " + s.anchor.txHash; box.append(n); }
+}
+$("sign").onclick = async () => {
+  const s = state.seal; msg("seal-msg", "");
+  try {
+    if (s.anchor) throw new Error("This seal is already anchored. Adding a signature now would break its anchor proof.");
+    const a = await connect(); // always the wallet's active account: the next signer may share this device
+    if (s.signatures.some((g) => g.signer.toLowerCase() === a.toLowerCase())) throw new Error("This wallet has already signed.");
+    await onChain(s.chainId);
+    msg("seal-msg", "Check your wallet: you are signing the title, document hash and time shown above. No transaction, no fee.");
+    const sig = await (await wallet(s.chainId)).signTypedData({ account: a, ...S.typedDataFor(s) });
+    const next = structuredClone(s); next.signatures.push({ signer: a, signature: sig });
+    S.validateSeal(next);
+    const check = await S.verifySeal(next, { client: S.clientFor(s.chainId) });
+    const mine = check.checks.find((c) => c.name.toLowerCase() === ("signature " + a).toLowerCase());
+    if (!mine || !mine.ok) throw new Error("The wallet returned a signature that does not verify: " + (mine ? mine.detail : "unknown"));
+    state.seal = next; showSeal(); syncFragment();
+    msg("seal-msg", "Signed. Copy the link for the next signer, or download the seal.", "ok");
+  } catch (e) { msg("seal-msg", e.shortMessage || e.message, "err"); }
+};
+function syncFragment() { history.replaceState(null, "", S.toLink(location.pathname, state.seal)); }
+$("copy-link").onclick = async () => {
+  const link = S.toLink(location.origin + location.pathname, state.seal);
+  try { await navigator.clipboard.writeText(link); msg("seal-msg", "Link copied.", "ok"); }
+  catch { msg("seal-msg", link); }
+};
+function download(seal) {
+  const blob = new Blob([JSON.stringify(seal, null, 2)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "seal-" + seal.docHash.slice(2, 10) + (seal.anchor ? "-anchored" : "") + ".json";
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$("download").onclick = () => download(state.seal);
+$("start-over").onclick = () => { state.seal = null; history.replaceState(null, "", location.pathname); $("seal-card").hidden = true; $("new-card").hidden = false; msg("seal-msg", ""); };
+
+// ---------- verify ----------
+function parseSealInput(text) {
+  text = text.trim();
+  if (!text) return null;
+  if (text.startsWith("{")) return S.validateSeal(JSON.parse(text));
+  const i = text.indexOf("#");
+  return S.fromFragment(i >= 0 ? text.slice(i) : "#seal=" + text);
+}
+$("v-run").onclick = async () => {
+  const out = $("v-out"); out.textContent = ""; msg("v-msg", "");
+  try {
+    let seal = null;
+    const f = $("v-seal").files[0];
+    if (f) seal = S.validateSeal(JSON.parse(await f.text()));
+    else seal = parseSealInput($("v-paste").value);
+    if (!seal) throw new Error("Choose a seal file, or paste a seal link.");
+    const d = $("v-doc").files[0];
+    msg("v-msg", "Checking on " + S.CHAINS[seal.chainId].name + "…");
+    const r = await S.verifySeal(seal, { client: S.clientFor(seal.chainId), fileHash: d ? await hashFile(d) : undefined });
+    for (const c of r.checks) {
+      const li = document.createElement("li"); li.className = c.ok ? "ok" : "bad";
+      const n = document.createElement("span"); n.className = "n"; n.textContent = (c.ok ? "✓ " : "✗ ") + c.name;
+      const t = document.createElement("div"); t.className = "hint"; t.textContent = c.detail || "";
+      li.append(n, t); out.append(li);
+    }
+    msg("v-msg", r.ok ? "Every check passed: “" + seal.title + "”." : "Some checks failed.", r.ok ? "ok" : "err");
+  } catch (e) { msg("v-msg", e.message, "err"); }
+};
+
+// ---------- anchor ----------
+let quote = null, quoteSeq = 0;
+async function refreshFee() {
+  const id = Number($("chain").value), c = S.CHAINS[id], seq = ++quoteSeq;
+  $("a-go").disabled = true; quote = null;
+  if (!c.feeAddress) { $("a-fee").textContent = "Anchoring on " + c.name + " opens once its fee address is set. Use Base Sepolia for the beta."; return; }
+  try {
+    const q = await S.quoteFee(S.clientFor(id), id);
+    if (seq !== quoteSeq) return; // the network changed while this quote was in flight
+    quote = q;
+    $("a-fee").textContent = "Fee: $0.02 = " + formatEther(quote.wei) + " ETH (ETH/USD " + (Number(quote.answer) / 10 ** quote.decimals).toFixed(2) + " from Chainlink), plus network gas.";
+    $("a-go").disabled = state.batch.length === 0;
+  } catch (e) { if (seq === quoteSeq) $("a-fee").textContent = "Could not price the fee: " + e.message; }
+}
+$("chain").onchange = refreshFee;
+$("a-files").onchange = async () => {
+  state.batch = []; const list = $("a-list"); list.textContent = ""; msg("a-msg", "");
+  for (const f of $("a-files").files) {
+    const row = document.createElement("div");
+    try {
+      const s = S.validateSeal(JSON.parse(await f.text()));
+      if (s.anchor) throw new Error("already anchored");
+      if (!s.signatures.length) throw new Error("not signed yet");
+      state.batch.push(s); row.textContent = "✓ " + s.title + " · " + s.signatures.length + " signature(s)";
+    } catch (e) { row.textContent = "✗ " + f.name + ": " + e.message; }
+    list.append(row);
+  }
+  refreshFee();
+};
+$("a-go").onclick = async () => {
+  const id = Number($("chain").value); msg("a-msg", ""); $("a-done").textContent = "";
+  try {
+    const a = await connect();
+    await refreshFee(); if (!quote || Number($("chain").value) !== id) throw new Error("No fee quote for this network.");
+    const plan = S.buildAnchorTx({ chainId: id, seals: state.batch, feeWei: quote.wei });
+    await onChain(id);
+    msg("a-msg", "Check your wallet: one transaction of " + formatEther(quote.wei) + " ETH to " + short(plan.tx.to) + ", carrying the root of " + state.batch.length + " seal(s).");
+    const hash = await (await wallet(id)).sendTransaction({ account: a, to: plan.tx.to, value: plan.tx.value, data: plan.tx.data });
+    msg("a-msg", "Sent " + short(hash) + ". Waiting for the block…");
+    const client = S.clientFor(id);
+    const rc = await client.waitForTransactionReceipt({ hash });
+    if (rc.status !== "success") throw new Error("The transaction reverted.");
+    const anchored = S.attachAnchor(state.batch, plan.leaves, plan.root, hash);
+    const v = await S.verifySeal(anchored[0], { client });
+    msg("a-msg", "Anchored in block " + rc.blockNumber + ". " + (v.ok ? "Re-verified on-chain." : "Warning: re-verification failed."), v.ok ? "ok" : "err");
+    const ex = document.createElement("a"); ex.href = S.CHAINS[id].explorer + "/tx/" + hash; ex.target = "_blank"; ex.rel = "noopener"; ex.textContent = "View transaction";
+    $("a-done").append(ex);
+    for (const s of anchored) { const b = document.createElement("button"); b.textContent = "Download “" + s.title.slice(0, 30) + "”"; b.onclick = () => download(s); $("a-done").append(b); }
+    state.batch = []; $("a-files").value = ""; $("a-list").textContent = ""; $("a-go").disabled = true;
+  } catch (e) { msg("a-msg", e.shortMessage || e.message, "err"); }
+};
+
+// ---------- open a shared seal ----------
+try {
+  const s = S.fromFragment(location.hash);
+  if (s) { state.seal = s; $("chain").value = String(s.chainId); showSeal(); }
+} catch (e) { msg("top-msg", "This link does not hold a valid seal: " + e.message, "err"); }
+window.__seal = { state, S }; // for tests
+</script>
+</body>
+</html>
