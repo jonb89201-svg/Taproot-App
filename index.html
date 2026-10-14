@@ -812,13 +812,13 @@ const CONTRACTS = [
     access:"AccessControl (OWNER_ROLE self-admin; OPERATOR granted by OWNER; GUARDIAN seeded once by OWNER, self-administered thereafter — GUARDIAN_ROLE is its own role admin once a guardian exists)",
     categories:[
       { id:"policy", label:"Inflow Policy", blurb:"Set how incoming USDC flows — yield split, reserve target, batch size",
-        names:["setCbEthBps","setDaiCeiling","setMinSwapBatch","setSweepSlippageGuards","cbEthBps","daiCeiling","minSwapBatch","sweepSlippageMinDai","sweepSlippageMinCbEth","morphoDepositedPrincipal"] },
+        names:["setCbEthBps","setDaiCeiling","setMinSwapBatch","setSweepSlippageGuards","cbEthBps","daiCeiling","minSwapBatch","sweepSlippageMinDai","sweepSlippageMinWeth","sweepSlippageMinCbEth","morphoDepositedPrincipal"] },
       { id:"operations", label:"Operations", blurb:"Run sweeps, check status, pause and resume the engine",
-        names:["sweep","pauseUCR","queueResumeUCR","resumeUCR","getTreasuryGauge","getUSDCBalance","getDAIBalance","getCbETHBalance","getMorphoBalance","lastSweepTime","nextSweepAllowed","isDaiReserveFull","checkUpkeep"] },
+        names:["sweep","pauseUCR","queueResumeUCR","resumeUCR","routingPaused","SWEEP_DELAY","getTreasuryGauge","getUSDCBalance","getDAIBalance","getCbETHBalance","getMorphoBalance","lastSweepTime","nextSweepAllowed","isDaiReserveFull","checkUpkeep"] },
       { id:"reserve", label:"Reserve & Withdrawals", blurb:"Manage DAI working capital and daily withdrawal limits",
-        names:["withdrawDAI","decreaseDailyLimit","queueDailyLimitIncrease","executeDailyLimitIncrease","cancelDailyLimitIncrease","dailyRemaining","dailyLimit","dailyLimitRef","LIMIT_INCREASE_MAX_MULT"] },
+        names:["withdrawDAI","decreaseDailyLimit","queueDailyLimitIncrease","executeDailyLimitIncrease","cancelDailyLimitIncrease","dailyRemaining","dailyLimit","dailyLimitRef","LIMIT_INCREASE_MAX_MULT","queuedLimitIncrease","sendUSDC","sendCbETH","redeemMorpho","decreaseAssetDailyLimit","queueAssetDailyLimitIncrease","executeAssetDailyLimitIncrease","cancelAssetDailyLimitIncrease","usdcDailyLimit","usdcDailyRemaining","cbEthDailyLimit","cbEthDailyRemaining","assetLimitRef","queuedAssetLimitIncrease","WINDOW_SIZE","LIMIT_DELAY"] },
       { id:"security", label:"Security", blurb:"Guardian protection, role management, emergency controls",
-        names:["enableGuardian","disableGuardian","queueGuardianDisable","cancelGuardianDisable","guardianPause","guardianCancelDailyLimitIncrease","guardianEnabled","guardianCount","guardianDisableExecuteAfter","GUARDIAN_DISABLE_DELAY","armorLevelDays","grantRole","revokeRole","renounceRole","hasRole","getRoleAdmin","OWNER_ROLE","OPERATOR_ROLE","GUARDIAN_ROLE","DEFAULT_ADMIN_ROLE","queueEmergencyWithdraw","executeEmergencyWithdraw","cancelEmergencyWithdraw","isEmergencyQueued","emergencyReady"] },
+        names:["enableGuardian","disableGuardian","queueGuardianDisable","cancelGuardianDisable","guardianPause","guardianCancelDailyLimitIncrease","guardianCancelAssetLimitIncrease","setWithdrawalsFrozen","guardianCancelEmergency","withdrawalsFrozen","guardianEnabled","guardianCount","guardianDisableExecuteAfter","GUARDIAN_DISABLE_DELAY","armorLevelDays","grantRole","revokeRole","renounceRole","hasRole","getRoleAdmin","OWNER_ROLE","OPERATOR_ROLE","GUARDIAN_ROLE","DEFAULT_ADMIN_ROLE","queueEmergencyWithdraw","executeEmergencyWithdraw","cancelEmergencyWithdraw","isEmergencyQueued","emergencyReady","emergencyQueue","EMERGENCY_DELAY"] },
       { id:"automation", label:"Automation", blurb:"Chainlink keeper config — forwarder, upkeep, pause",
         names:["setForwarder","setUpkeepID","queueForwarderUpdate","executeForwarderUpdate","pauseUpkeep","unpauseUpkeep","automationForwarder","upkeepID","upkeepPaused","executedUpkeepCount","UPKEEP_HYSTERESIS_BPS"] },
     ],
@@ -849,7 +849,7 @@ const CONTRACTS = [
 
       // OWNER — guardian path
       { kind:"write", name:"enableGuardian", gated:["OWNER_ROLE"],
-        desc:"Enable guardian pause path. While enabled, GUARDIAN_ROLE may invoke guardianPause().",
+        desc:"Enable the guardian path. While enabled, GUARDIAN_ROLE may invoke guardianPause(), setWithdrawalsFrozen(), guardianCancelEmergency() and the two limit-increase vetoes.",
         inputs:[], outputs:[] },
       { kind:"write", name:"disableGuardian", gated:["OWNER_ROLE"],
         desc:"Disable guardian path. If no guardian has ever been seated, this is instant. Once a guardian exists, disabling requires queueGuardianDisable() + a 7-day timelock (GUARDIAN_DISABLE_DELAY) — a stolen owner key can no longer disarm the guardian and drain in one transaction. Reverts GuardianDisableNotReady if the timelock hasn't been queued or hasn't elapsed.",
@@ -868,11 +868,21 @@ const CONTRACTS = [
       { kind:"write", name:"guardianCancelDailyLimitIncrease", gated:["GUARDIAN_ROLE"],
         desc:"Guardian veto on a queued DAI daily-limit increase (see queueDailyLimitIncrease). Requires guardianEnabled. Reverts NoIncreaseQueued if nothing is pending.",
         inputs:[], outputs:[] },
+      { kind:"write", name:"guardianCancelAssetLimitIncrease", gated:["GUARDIAN_ROLE"],
+        desc:"Guardian veto on a queued USDC or cbETH daily exit-limit increase (P-H1). Requires guardianEnabled. Reverts NoIncreaseQueued if nothing is pending for that asset.",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[] },
+      { kind:"write", name:"setWithdrawalsFrozen", gated:["GUARDIAN_ROLE"], danger:true,
+        plain:{ label:"Freeze Withdrawals", blurb:"Your security wallet can lock every way money can be taken out of the contract. Sweeps keep running. Only the security wallet can unlock it." },
+        desc:"M-1: freeze (true) or unfreeze (false) the exit paths: withdrawDAI, sendUSDC, sendCbETH, redeemMorpho and executeEmergencyWithdraw. Independent of routingPaused, so sweeps are unaffected. The owner cannot clear it, which is the defence against a stolen owner key. Requires guardianEnabled.",
+        inputs:[{name:"frozen",type:"bool",hint:"true to freeze, false to unfreeze"}], outputs:[] },
+      { kind:"write", name:"guardianCancelEmergency", gated:["GUARDIAN_ROLE"],
+        desc:"M-1: guardian cancels a queued emergency withdrawal for a token, so a stolen owner key cannot push a 7-day drain past the guardian. Requires guardianEnabled. Reverts NothingQueued if nothing is queued for that token.",
+        inputs:[{name:"token",type:"address"}], outputs:[] },
 
       // OWNER — DAI reserve management
       { kind:"write", name:"withdrawDAI", gated:["OWNER_ROLE"],
         plain:{ label:"Take Money Out", blurb:"Move money from your reserve to your own wallet." },
-        desc:"Withdraw DAI from contract to a destination address. Subject to daily limit.",
+        desc:"Withdraw DAI from contract to a destination address. Subject to the DAI daily limit (leaky bucket, see dailyRemaining). Reverts WithdrawalsFrozen while the guardian freeze is on.",
         inputs:[{name:"amount",type:"uint256"},{name:"to",type:"address"}], outputs:[] },
       { kind:"write", name:"setDaiCeiling", gated:["OWNER_ROLE"],
         plain:{ label:"Set My Spending Reserve", blurb:"Set how much spending money to keep on hand before the rest is saved." },
@@ -894,12 +904,37 @@ const CONTRACTS = [
         desc:"Cancel queued daily limit increase.",
         inputs:[], outputs:[] },
 
+      // OWNER — operational exits (C-2: each is daily-capped; M-1: each stops under the guardian freeze)
+      { kind:"write", name:"sendUSDC", gated:["OWNER_ROLE"],
+        desc:"Send USDC out of the contract. Counts against usdcDailyLimit (shared with redeemMorpho). Reverts DailyLimitExceeded over the cap and WithdrawalsFrozen under the freeze. Larger exits go through the 7-day emergency queue.",
+        inputs:[{name:"amount",type:"uint256",hint:"USDC base units (6 decimals)"},{name:"to",type:"address"}], outputs:[] },
+      { kind:"write", name:"sendCbETH", gated:["OWNER_ROLE"],
+        desc:"Send cbETH out of the contract (unwind it on a DEX yourself). Counts against cbEthDailyLimit. Reverts DailyLimitExceeded over the cap and WithdrawalsFrozen under the freeze.",
+        inputs:[{name:"amount",type:"uint256",hint:"cbETH base units (18 decimals)"},{name:"to",type:"address"}], outputs:[] },
+      { kind:"write", name:"redeemMorpho", gated:["OWNER_ROLE"],
+        desc:"Redeem Morpho vault shares; the vault sends the USDC straight to `to`. The USDC out counts against usdcDailyLimit (same cap as sendUSDC), checked on the vault's actual output. Reverts WithdrawalsFrozen under the freeze.",
+        inputs:[{name:"shares",type:"uint256"},{name:"to",type:"address"}], outputs:[{name:"usdcOut",type:"uint256"}] },
+
+      // OWNER — per-asset exit limits (C-2; increases capped by P-H1)
+      { kind:"write", name:"decreaseAssetDailyLimit", gated:["OWNER_ROLE"],
+        desc:"Lower the USDC or cbETH daily exit limit. Immediate. newLimit must be lower than current (InvalidLimit otherwise).",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"},{name:"newLimit",type:"uint256"}], outputs:[] },
+      { kind:"write", name:"queueAssetDailyLimitIncrease", gated:["OWNER_ROLE"],
+        desc:"Step 1 of a USDC or cbETH exit-limit increase. 24h (LIMIT_DELAY) before executable. Must be higher than current, and at most LIMIT_INCREASE_MAX_MULT (2x) assetLimitRef(asset) — IncreaseTooLarge otherwise. The guardian can veto it.",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"},{name:"newLimit",type:"uint256"}], outputs:[] },
+      { kind:"write", name:"executeAssetDailyLimitIncrease", gated:["OWNER_ROLE"],
+        desc:"Step 2 of a per-asset limit increase. Requires a queued increase and LIMIT_DELAY elapsed.",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[] },
+      { kind:"write", name:"cancelAssetDailyLimitIncrease", gated:["OWNER_ROLE"],
+        desc:"Cancel a queued per-asset limit increase.",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[] },
+
       // OWNER — emergency withdraw
       { kind:"write", name:"queueEmergencyWithdraw", gated:["OWNER_ROLE"],
         desc:"Step 1 of emergency withdraw. Queues token+amount. 7-day delay before executable.",
         inputs:[{name:"token",type:"address"},{name:"amount",type:"uint256"}], outputs:[] },
       { kind:"write", name:"executeEmergencyWithdraw", gated:["OWNER_ROLE"],
-        desc:"Step 2 of emergency withdraw. Sends queued amount to `to` after 7-day elapsed. DAI withdrawals also enforce daily limit.",
+        desc:"Step 2 of emergency withdraw. Sends queued amount to `to` after 7-day elapsed. DAI withdrawals also enforce the DAI daily limit; other tokens rely on the 7-day queue, which the guardian can freeze (setWithdrawalsFrozen) and cancel (guardianCancelEmergency). Reverts WithdrawalsFrozen while the freeze is on.",
         inputs:[{name:"token",type:"address"},{name:"to",type:"address"}], outputs:[] },
       { kind:"write", name:"cancelEmergencyWithdraw", gated:["OWNER_ROLE"],
         desc:"Cancel queued emergency withdraw for a token.",
@@ -974,8 +1009,34 @@ const CONTRACTS = [
       { kind:"read", name:"getMorphoBalance", gated:["read"],
         plain:{ label:"My Lending", blurb:"Your money earning interest in the lending vault." }, desc:"Morpho leg position: vault shares held and their current USDC redemption value. currentUSDCValue rises with vault yield even when shares are unchanged — that is the dual-acquisition design working, not a stale read. Defensive try/catch: if the vault reverts, currentUSDCValue returns 0 while shares still reflects holdings (shares>0 && value==0 signals vault state unclear).",
         inputs:[], outputs:[{name:"shares",type:"uint256"},{name:"currentUSDCValue",type:"uint256"}] },
-      { kind:"read", name:"dailyRemaining", gated:["read"], desc:"DAI remaining in current 24h withdraw window.",
+      { kind:"read", name:"dailyRemaining", gated:["read"], desc:"DAI that can be withdrawn right now. Leaky bucket (P-M4): spent capacity drains back linearly over WINDOW_SIZE (24h), so there is no window boundary to straddle.",
         inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"queuedLimitIncrease", gated:["read"], desc:"The queued DAI daily-limit increase (newLimit, executeAfter). executeAfter 0 = nothing queued.",
+        inputs:[], outputs:[{name:"newLimit",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
+      { kind:"read", name:"usdcDailyLimit", gated:["read"], desc:"Daily USDC exit limit, shared by sendUSDC and redeemMorpho (6 decimals).",
+        inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"usdcDailyRemaining", gated:["read"], desc:"USDC that can leave right now via sendUSDC / redeemMorpho (leaky bucket).",
+        inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"cbEthDailyLimit", gated:["read"], desc:"Daily cbETH exit limit for sendCbETH (18 decimals).",
+        inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"cbEthDailyRemaining", gated:["read"], desc:"cbETH that can leave right now via sendCbETH (leaky bucket).",
+        inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"assetLimitRef", gated:["read"], desc:"Reference limit a per-asset increase is capped against (the highest limit ever set for that asset).",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"queuedAssetLimitIncrease", gated:["read"], desc:"The queued per-asset increase (newLimit, executeAfter). executeAfter 0 = nothing queued.",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[{name:"newLimit",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
+      { kind:"read", name:"withdrawalsFrozen", gated:["read"], desc:"True while the guardian freeze is on: every exit path reverts WithdrawalsFrozen; sweeps still run.",
+        inputs:[], outputs:[{type:"bool"}] },
+      { kind:"read", name:"emergencyQueue", gated:["read"], desc:"The queued emergency withdrawal for a token (amount, executeAfter).",
+        inputs:[{name:"token",type:"address"}], outputs:[{name:"amount",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
+      { kind:"read", name:"routingPaused", gated:["read"], desc:"True while sweeps are paused (pauseUCR / guardianPause).",
+        inputs:[], outputs:[{type:"bool"}] },
+      { kind:"read", name:"sweepSlippageMinWeth", gated:["read"], desc:"Automation's slippage floor for the USDC→WETH leg.",
+        inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"SWEEP_DELAY", gated:["read"], desc:"Minimum time between sweeps (seconds).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"LIMIT_DELAY", gated:["read"], desc:"Timelock on a limit increase (seconds).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"EMERGENCY_DELAY", gated:["read"], desc:"Timelock on an emergency withdrawal (seconds).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"WINDOW_SIZE", gated:["read"], desc:"Leaky-bucket drain period for every daily limit (seconds).", inputs:[], outputs:[{type:"uint256"}] },
       { kind:"read", name:"armorLevelDays", gated:["read"], desc:"Days of operating runway the DAI reserve covers at a given daily burn rate.",
         inputs:[{name:"dailyBurnRate",type:"uint256",hint:"daily burn in DAI base units (18 decimals)"}], outputs:[{type:"uint256"}] },
       { kind:"read", name:"isDaiReserveFull", gated:["read"], desc:"True once DAI balance ≥ daiCeiling.",
@@ -3162,10 +3223,13 @@ if (__lrLaunch) __lrLaunch.addEventListener("click",function(){LaunchRail.askEnv
   const CFG = {
     // Factory addresses per chain. NULL = preview mode (D1).
     FACTORY: {
-      // Base mainnet — LIVE 2026-07-28, CREATE3 anchor from deploy/anchor.json.
-      // feeSink = the Heart (0xE0612f38…), DEPLOYMENT_FEE = 50 USDC,
-      // templateCodehash pinned to the Account template. All verified on-chain.
-      8453:  "0x0DD06656cb9a38730a7177792C357E48cEdb49Bd",
+      // Base mainnet — NULL until the fixed factory is deployed (D1: preview).
+      // The 2026-07-28 factory 0x0DD06656cb9a38730a7177792C357E48cEdb49Bd pins
+      // templateCodehash 0x14357940…e39d, the PRE-FIX PossessioPayments.
+      // The fixed source (Possessio src/PossessioPayments.sol after f0e545e)
+      // hashes to a different template, so that factory can only launch the
+      // contract the audit fixed. Set the new factory here after redeploy.
+      8453:  null,
       84532: null    // Base Sepolia  — set after testnet factory deploy
     },
     // USDC per chain. Verified against the repo canonical constant used
