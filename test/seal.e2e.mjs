@@ -105,18 +105,24 @@ try {
   await page.waitForTimeout(300);
   ok(/already signed/.test(await page.textContent("#seal-msg")), "the same wallet cannot sign twice");
 
-  // 2. the share link opens the seal in a fresh page
-  const link = S.toLink(WEB + "/seal.html", seal);
+  ok((await page.evaluate(() => location.hash)).startsWith("#s="), "the page keeps the compact link in its address bar");
+
+  // 2. the share link opens the seal in a fresh page, and an old JSON link still does
+  const link = await S.toLink(WEB + "/seal.html", seal);
   const p2 = await ctx.newPage();
   await p2.goto(link);
   await p2.waitForFunction(() => window.__seal && window.__seal.state.seal);
   ok((await p2.textContent("#s-title")) === "Lease, unit 4" && (await p2.$$eval("#s-sigs .sig", (x) => x.length)) === 2, "the share link opens the seal with both signatures");
+  await p2.goto(WEB + "/seal.html#seal=" + Buffer.from(JSON.stringify(seal)).toString("base64url"));
+  await p2.reload();
+  await p2.waitForFunction(() => window.__seal && window.__seal.state.seal);
+  ok((await p2.textContent("#s-title")) === "Lease, unit 4" && (await p2.$$eval("#s-sigs .sig", (x) => x.length)) === 2, "an old JSON link (#seal=) still opens in the page");
   await p2.close();
 
   // 3. hostile title through a link is shown as text, never run
   const evil = structuredClone(seal); evil.title = '<img src=x onerror="window.__pwned=1">'; evil.signatures = [];
   const p3 = await ctx.newPage();
-  await p3.goto(S.toLink(WEB + "/seal.html", evil));
+  await p3.goto(await S.toLink(WEB + "/seal.html", evil));
   await p3.waitForFunction(() => window.__seal && window.__seal.state.seal);
   await p3.waitForTimeout(300);
   ok((await p3.evaluate(() => window.__pwned)) === undefined && (await p3.textContent("#s-title")) === evil.title, "markup in a seal title is shown as text, never executed");

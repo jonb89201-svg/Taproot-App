@@ -256,9 +256,9 @@ $("sign").onclick = async () => {
     msg("seal-msg", "Signed. Copy the link for the next signer, or download the seal.", "ok");
   } catch (e) { msg("seal-msg", e.shortMessage || e.message, "err"); }
 };
-function syncFragment() { history.replaceState(null, "", S.toLink(location.pathname, state.seal)); }
+function syncFragment() { S.toLink(location.pathname, state.seal).then((l) => history.replaceState(null, "", l)).catch(() => {}); }
 $("copy-link").onclick = async () => {
-  const link = S.toLink(location.origin + location.pathname, state.seal);
+  const link = await S.toLink(location.origin + location.pathname, state.seal);
   try { await navigator.clipboard.writeText(link); msg("seal-msg", "Link copied.", "ok"); }
   catch { msg("seal-msg", link); }
 };
@@ -272,12 +272,13 @@ $("download").onclick = () => download(state.seal);
 $("start-over").onclick = () => { state.seal = null; history.replaceState(null, "", location.pathname); $("seal-card").hidden = true; $("new-card").hidden = false; msg("seal-msg", ""); };
 
 // ---------- verify ----------
-function parseSealInput(text) {
+async function parseSealInput(text) {
   text = text.trim();
   if (!text) return null;
   if (text.startsWith("{")) return S.validateSeal(JSON.parse(text));
   const i = text.indexOf("#");
-  return S.fromFragment(i >= 0 ? text.slice(i) : "#seal=" + text);
+  if (i >= 0) return S.fromFragment(text.slice(i));
+  return S.fromFragment((text.startsWith("ey") ? "#seal=" : "#s=") + text);   // a bare payload: old JSON links start "ey"
 }
 $("v-run").onclick = async () => {
   const out = $("v-out"); out.textContent = ""; msg("v-msg", "");
@@ -285,7 +286,7 @@ $("v-run").onclick = async () => {
     let seal = null;
     const f = $("v-seal").files[0];
     if (f) seal = S.validateSeal(JSON.parse(await f.text()));
-    else seal = parseSealInput($("v-paste").value);
+    else seal = await parseSealInput($("v-paste").value);
     if (!seal) throw new Error("Choose a seal file, or paste a seal link.");
     const d = $("v-doc").files[0];
     msg("v-msg", "Checking on " + S.CHAINS[seal.chainId].name + "…");
@@ -360,7 +361,7 @@ $("a-go").onclick = async () => {
 
 // ---------- open a shared seal ----------
 try {
-  const s = S.fromFragment(location.hash);
+  const s = await S.fromFragment(location.hash);
   if (s) { state.seal = s; $("chain").value = String(s.chainId); showSeal(); }
 } catch (e) { msg("top-msg", "This link does not hold a valid seal: " + e.message, "err"); }
 window.__seal = { state, S }; // for tests
