@@ -42,9 +42,13 @@ panel and the contract drift apart, and if the rail points at the pre-fix factor
 - **Signing.** Each signer signs the same EIP-712 message: the document hash, a title and the time. Signing
   works with plain wallets and smart wallets (ERC-1271, and ERC-6492 for wallets not deployed yet). The seal
   travels as a JSON file or in a link's fragment, never through a server.
-- **Short links.** A link (`#s=`) carries the seal's fields as bytes: about 230 characters for a one-signature seal,
-  against about 590 for the old JSON link (`#seal=`), which still opens. A plain-wallet signer is recovered from its
-  signature, so the link doesn't carry it; a smart-wallet signer is carried. Shorter titles make shorter links.
+- **Short links.** A link (`#s=`) carries the seal's fields as bytes: about 236 characters for a one-signature seal,
+  against about 590 for the old JSON link (`#seal=`), which still opens. Shorter titles make shorter links.
+  - A plain-wallet signer is recovered from its signature, so the link carries only the first 4 bytes of its address,
+    as a check. A link with one changed character is refused as damaged. Without the check, most such changes opened
+    under a stranger's address and still verified (MEASURED 2026-10-15: 284 of 438 one-byte changes).
+  - A smart-wallet signer is carried whole.
+  - Short links made before the check (version 2, 2026-10-15) still open.
 - **Free.** Signing and verifying cost nothing.
 - **Anchoring.** One Base transaction posts a Merkle root of any number of signed seals. That proves the seals,
   with their signatures, existed by that block. The transaction pays **$0.02 in ETH**, priced live from

@@ -364,9 +364,13 @@ export async function verifySeal(seal, { client, fileHash } = {}) {
 // ---------- share links (the seal travels in the URL fragment, never to a server) ----------
 // The compact link (#s=) carries the seal's fields as bytes, then base64url: about 40% of the length of the old JSON
 // link (#seal=), which still opens. A plain-wallet signature drops its signer, because the signer is recovered from
-// the signature. Any other signature (a smart wallet's) keeps its signer. Nothing in a link is trusted: the seal goes
-// through validateSeal(), and verifySeal() checks every signature again.
-const LINK_VERSION = 2;
+// the signature. The link keeps the first 4 bytes of that signer's address, so a damaged or changed link is refused
+// instead of recovering a stranger's address. Any other signature (a smart wallet's) keeps its whole signer. Nothing
+// in a link is trusted: the seal goes through validateSeal(), and verifySeal() checks every signature again.
+// Version 2 links (live for about an hour on 2026-10-15) carry no signer check. They still open.
+const LINK_VERSION = 3;
+const LINK_UNCHECKED = 2;
+const SIGNER_CHECK = 4;
 const b64uEncode = (u8) => { let bin = ""; for (const b of u8) bin += String.fromCharCode(b); return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
 const b64uDecode = (str) => { const b64 = str.replace(/-/g, "+").replace(/_/g, "/"); return Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0)); };
 const hexBytes = (h) => Uint8Array.from(h.slice(2).match(/../g) || [], (x) => parseInt(x, 16));
@@ -406,8 +410,9 @@ export async function toLink(base, seal) {
     let recovered = null;
     try { recovered = await recoverTypedDataAddress({ ...td, signature: g.signature }); } catch { /* not a plain signature */ }
     const plain = recovered !== null && recovered.toLowerCase() === g.signer.toLowerCase();
+    const signer = hexBytes(getAddress(g.signer));
     w.u8(plain ? 0 : 1);
-    if (!plain) w.raw(hexBytes(getAddress(g.signer)));
+    w.raw(plain ? signer.subarray(0, SIGNER_CHECK) : signer);
     w.chunk(hexBytes(g.signature));
   }
   if (seal.anchor) {
@@ -417,13 +422,25 @@ export async function toLink(base, seal) {
   return base + "#s=" + b64uEncode(w.done());
 }
 
+// A plain signer comes back from its signature. Version 3 also matches it against the address bytes the link carries,
+// so one changed byte in the signed fields or the signature is refused.
+async function recoveredSigner(td, signature, check, k) {
+  const damaged = new Error(`invalid seal link: signature ${k + 1} does not match its signer (the link was damaged or changed)`);
+  if (signature.length !== 130 && signature.length !== 132) throw damaged;     // a plain signature is 64 or 65 bytes
+  let signer;
+  try { signer = await recoverTypedDataAddress({ ...td, signature }); } catch { throw damaged; }
+  if (check && !signer.toLowerCase().startsWith(check)) throw damaged;
+  return signer;
+}
+
 export async function fromFragment(hash) {
   const legacy = /(?:^#|&)seal=([A-Za-z0-9_-]+)/.exec(hash || "");
   if (legacy) return validateSeal(JSON.parse(new TextDecoder().decode(b64uDecode(legacy[1]))));
   const m = /(?:^#|&)s=([A-Za-z0-9_-]+)/.exec(hash || "");
   if (!m) return null;
   const r = linkReader(b64uDecode(m[1]));
-  if (r.u8() !== LINK_VERSION) throw new Error("invalid seal link: unknown version");
+  const version = r.u8();
+  if (version !== LINK_VERSION && version !== LINK_UNCHECKED) throw new Error("invalid seal link: unknown version");
   const chainId = Number(r.varint()), docHash = bytesHex(r.raw(32)), sealedAt = Number(r.varint());
   const title = new TextDecoder("utf-8", { fatal: true }).decode(r.chunk(TITLE_MAX * 4));
   const seal = { seal: SEAL_FORMAT, chainId, hashAlg: "sha256", docHash, title, sealedAt, signatures: [] };
@@ -435,10 +452,13 @@ export async function fromFragment(hash) {
     const kind = r.u8();
     if (kind > 1) throw new Error("invalid seal link: unknown signature kind");
     const explicit = kind === 1 ? getAddress(bytesHex(r.raw(20))) : null;
+    const check = kind === 0 && version === LINK_VERSION ? bytesHex(r.raw(SIGNER_CHECK)) : null;
     const signature = bytesHex(r.chunk(4096));
-    seal.signatures.push({ signer: explicit || (await recoverTypedDataAddress({ ...td, signature })), signature });
+    seal.signatures.push({ signer: explicit || (await recoveredSigner(td, signature, check, k)), signature });
   }
-  if (r.u8() === 1) {
+  const anchored = r.u8();
+  if (anchored > 1) throw new Error("invalid seal link: bad anchor flag");
+  if (anchored === 1) {
     const txHash = bytesHex(r.raw(32)), root = bytesHex(r.raw(32)), np = Number(r.varint());
     if (np > 16) throw new Error("invalid seal link: proof too long");
     const proof = []; for (let k = 0; k < np; k++) proof.push(bytesHex(r.raw(32)));
