@@ -44,17 +44,24 @@ panel and the contract drift apart, and if the rail points at the pre-fix factor
   travels as a JSON file or in a link's fragment, never through a server.
 - **Free.** Signing and verifying cost nothing.
 - **Anchoring.** One Base transaction posts a Merkle root of any number of signed seals. That proves the seals,
-  with their signatures, existed by that block. The transaction pays **$0.02 in ETH** to the fee address, priced
-  live from Chainlink ETH/USD and rounded up, plus network gas. Calldata is `"SEAL"` + `0x01` + root + the
-  Taproot Builder Code suffix.
-- **Beta.** Anchoring runs on **Base Sepolia only**. Base mainnet anchoring stays off until its fee address is set
-  in `seal-core.mjs`.
+  with their signatures, existed by that block. The transaction pays **$0.02 in ETH**, priced live from
+  Chainlink ETH/USD and rounded up, plus network gas. Calldata is `"SEAL"` + `0x01` + root + the Taproot
+  Builder Code suffix.
+- **Where the fee goes.**
+  - The fee goes to the Seal fee wallet `0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9`, a plain wallet, on Base and
+    on Base Sepolia.
+  - The Architect sweeps it into the STEEL Treasury Safe `0x19495180FFA00B8311c85DCF76A89CCbFB174EA0` (Safe 1.4.1,
+    2-of-4).
+  - The Safe can't be the fee address itself: an anchor is ETH plus data, and the Safe reverts on that, while a plain
+    transfer into it succeeds (MEASURED 2026-10-15 on a fork of Base mainnet).
+  - So the page refuses any fee address that has contract code.
+- **Networks.** Base mainnet is the default. Base Sepolia moves test ETH only.
 
 **Tests.** `npm install`, then:
 
 | Command | What it runs |
 |---|---|
-| `npm test` | ABI sync, plus the Seal suite (needs Foundry's `anvil`): offline checks, and a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures |
+| `npm test` | ABI sync, plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why the Treasury Safe can't be paid directly |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
 

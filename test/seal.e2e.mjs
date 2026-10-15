@@ -78,6 +78,8 @@ try {
   await page.evaluate((rpc) => { window.__seal.S.CHAINS[84532].rpc = rpc; }, RPC);
   console.log("Seal page: e2e on an anvil fork of Base Sepolia");
   ok(true, "page loaded viem from the pinned CDN build and booted");
+  ok((await page.inputValue("#chain")) === "8453", "Base mainnet is the default network");
+  await page.selectOption("#chain", "84532");              // this run seals and anchors on the Sepolia fork
 
   // 1. create and sign twice
   const docBytes = Buffer.from("Taproot e2e lease document\n");
@@ -122,6 +124,7 @@ try {
   await page.waitForFunction(() => !document.getElementById("a-go").disabled, null, { timeout: 30000 });
   const feeText = await page.textContent("#a-fee");
   ok(/\$0\.02 = 0\.0000\d+ ETH/.test(feeText), "the page quotes $0.02 in ETH from the live feed: " + feeText.slice(0, 70));
+  ok(/to the Seal fee wallet 0x9Ce4…a6c9, swept into the STEEL Treasury \(0x1949…4EA0\)/.test(feeText), "the fee line names the fee wallet and the STEEL Treasury");
   const feeTo = S.CHAINS[84532].feeAddress;
   const before = await pub.getBalance({ address: feeTo });
   await page.click("#a-go");
@@ -149,7 +152,8 @@ try {
   await page.waitForFunction(() => /Some checks failed|Every check/.test(document.getElementById("v-msg").textContent), null, { timeout: 30000 });
   ok(/Some checks failed/.test(await page.textContent("#v-msg")), "a different document is caught by Verify");
 
-  // 6. mainnet stays closed, even when a Sepolia quote lands after the switch
+  // 6. a network without a fee address stays closed, even when another network's quote lands after the switch
+  await page.evaluate(() => { window.__seal.S.CHAINS[8453].feeAddress = null; });
   await page.setInputFiles("#a-files", { name: "seal.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(seal)) });
   slowFeed = true;
   await page.click('.tabs button[data-tab="anchor"]');   // starts a (held-back) Sepolia quote
@@ -157,7 +161,13 @@ try {
   await page.selectOption("#chain", "8453");               // switch while it is in flight
   await page.waitForTimeout(3500);                         // the late quote has now landed
   slowFeed = false;
-  ok(/opens once its fee address is set/.test(await page.textContent("#a-fee")) && (await page.isDisabled("#a-go")), "on Base mainnet the Anchor button stays off, even after a late Sepolia quote lands");
+  ok(/opens once its fee address is set/.test(await page.textContent("#a-fee")) && (await page.isDisabled("#a-go")), "a network without a fee address keeps Anchor off, even after a late quote from another network lands");
+
+  // 7. a fee address with contract code keeps Anchor off: an anchor sent to it would revert after the gas is paid
+  await page.evaluate(() => { const S = window.__seal.S; S.CHAINS[84532].feeAddress = S.CHAINS[84532].ethUsdFeed; });
+  await page.selectOption("#chain", "84532");
+  await page.waitForFunction(() => /Anchoring is off|Fee:/.test(document.getElementById("a-fee").textContent), null, { timeout: 30000 });
+  ok(/is a contract/.test(await page.textContent("#a-fee")) && (await page.isDisabled("#a-go")), "a fee address with contract code keeps Anchor off");
 
   ok(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
 } finally {

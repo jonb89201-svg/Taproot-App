@@ -27,8 +27,11 @@ import {
 
 export const SEAL_FORMAT = 1;
 
-// Base mainnet anchoring stays off until the Architect names the fee address.
-// Base Sepolia is the beta: anchors there move test ETH only.
+// Fees go to a plain fee wallet, the Architect's 0x9Ce4…a6c9, which the Architect sweeps into the STEEL
+// Treasury Safe (STEEL_TREASURY_SAFE). The Safe can't take an anchor itself: an anchor is ETH plus data, and
+// Safe 1.4.1 reverts on that, while a plain transfer into it succeeds (MEASURED 2026-10-15 on a fork of Base
+// mainnet). So assertPlainFeeAddress() refuses any fee address that has contract code.
+// A network whose feeAddress is null cannot anchor. Base Sepolia moves test ETH only.
 export const CHAINS = {
   8453: {
     name: "Base",
@@ -36,7 +39,7 @@ export const CHAINS = {
     explorer: "https://basescan.org",
     ethUsdFeed: "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",
     maxFeedAgeS: 3600, // ~20 min heartbeat
-    feeAddress: null,
+    feeAddress: "0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9",
   },
   84532: {
     name: "Base Sepolia",
@@ -44,11 +47,13 @@ export const CHAINS = {
     explorer: "https://sepolia.basescan.org",
     ethUsdFeed: "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1",
     maxFeedAgeS: 86400,
-    // Stand-in fee address for the beta (the Architect's own EOA, so test fees stay
-    // with the Architect). Replace with the real fee address before mainnet.
-    feeAddress: "0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9",
+    feeAddress: "0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9", // the same fee wallet; test ETH only
   },
 };
+
+// Where swept fees end up: the STEEL Treasury Safe on Base mainnet (Safe 1.4.1, 2-of-4). Shown on the page;
+// never used as a transaction target here.
+export const STEEL_TREASURY_SAFE = "0x19495180FFA00B8311c85DCF76A89CCbFB174EA0";
 
 export const FEE_USD_CENTS = 2n; // $0.02 per anchor transaction, however many seals it carries
 
@@ -247,6 +252,16 @@ export function buildAnchorTx({ chainId, seals, feeWei }) {
   const leaves = seals.map(sealLeaf);
   const root = merkleRoot(leaves);
   return { root, leaves, tx: { to: getAddress(c.feeAddress), value: feeWei, data: anchorCalldata(root) } };
+}
+
+// The fee address must be a plain wallet. A contract wallet such as a Safe reverts on ETH plus data, and the
+// anchor would fail after the signer paid gas. Checked on-chain before every anchor; returns the fee address.
+export async function assertPlainFeeAddress(client, chainId) {
+  const c = CHAINS[chainId];
+  if (!c || !c.feeAddress) throw new Error("anchoring is not enabled on " + (c ? c.name : "chain " + chainId) + " yet");
+  const code = await client.getCode({ address: c.feeAddress });
+  if (code && code !== "0x") throw new Error("the fee address " + getAddress(c.feeAddress) + " is a contract; an anchor sent to it would revert");
+  return getAddress(c.feeAddress);
 }
 
 // After the transaction lands, write each seal's own proof into it.
