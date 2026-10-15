@@ -21,7 +21,11 @@ const MUTANTS = [
   ["anchor root not compared", "else if (!onChainRoot || onChainRoot !== a.root.toLowerCase())", "else if (false)"],
   ["mainnet fee gate removed", 'if (!c.feeAddress) throw new Error("anchoring is not enabled on " + c.name + " yet");', ""],
   ["unsigned seals anchorable", 'if (!s.signatures.length) throw new Error("a seal must be signed before it is anchored");', ""],
-  ["contract fee address accepted", 'if (code && code !== "0x") throw new Error(', 'if (false) throw new Error('],
+  ["contract fee address accepted", 'if (code && code !== "0x") throw new Error("the fee address "', 'if (false) throw new Error("the fee address "'],
+  ["smart-wallet sender accepted", 'if (code && code !== "0x" && !EIP7702_DELEGATION.test(code)) throw new Error(ANCHOR_SENDER_HINT', 'if (false) throw new Error(ANCHOR_SENDER_HINT'],
+  ["a 7702 account refused as a contract", 'if (code && code !== "0x" && !EIP7702_DELEGATION.test(code)) throw new Error(ANCHOR_SENDER_HINT', 'if (code && code !== "0x") throw new Error(ANCHOR_SENDER_HINT'],
+  ["smart-account report ignored", 'if (smartAccountFrom(capabilities, chainId)) throw', 'if (false) throw'],
+  ["atomic 'ready' read as a smart account", 'c.atomic?.status === "supported"', 'c.atomic?.status !== "unsupported"'],
   ["fee wallet changed", 'feeAddress: "0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9",\n  },\n  84532', 'feeAddress: "0x19495180FFA00B8311c85DCF76A89CCbFB174EA0",\n  },\n  84532'],
 ];
 

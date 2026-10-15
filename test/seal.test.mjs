@@ -101,6 +101,14 @@ ok(S.CHAINS[CHAIN].feeAddress === FEE_WALLET, "Base Sepolia's fee goes to the sa
   await throws(() => S.buildAnchorTx({ chainId: 8453, seals: [otherChain], feeWei: 1n }), /not enabled/, "a network without a fee address cannot anchor");
   S.CHAINS[8453].feeAddress = saved;
 }
+
+// Who may send an anchor: what a wallet reports about itself (EIP-5792 capabilities)
+ok(S.smartAccountFrom({ "0x2105": { atomic: { status: "supported" } } }, 8453), "a wallet reporting atomic 'supported' runs as a smart account");
+ok(S.smartAccountFrom({ "0x2105": { atomicBatch: { supported: true } } }, 8453), "so does one reporting the earlier atomicBatch capability");
+ok(S.smartAccountFrom({ "0x0": { atomic: { status: "supported" } } }, 8453), "a report for every chain (0x0) counts");
+ok(!S.smartAccountFrom({ "0x2105": { atomic: { status: "ready" } } }, 8453) && !S.smartAccountFrom({ "0x2105": { atomic: { status: "unsupported" } } }, 8453), "'ready' and 'unsupported' are plain wallets");
+ok(!S.smartAccountFrom({ "0x14a34": { atomic: { status: "supported" } } }, 8453), "a report for another chain does not count");
+ok(!S.smartAccountFrom(null, 8453) && !S.smartAccountFrom({}, 8453) && !S.smartAccountFrom("x", 8453), "no report means a plain wallet");
 await throws(() => S.buildAnchorTx({ chainId: CHAIN, seals: [base], feeWei: 1n }), /signed/, "an unsigned seal cannot be anchored");
 
 // ---------- fork ----------
@@ -242,6 +250,32 @@ try {
     await throws(() => S.assertPlainFeeAddress(pubM, MAIN), /is a contract/, "pointing the fee address at the Treasury Safe is refused before anchoring");
     S.CHAINS[MAIN].feeAddress = saved;
   }
+
+  // A smart-wallet sender: a real Coinbase Smart Wallet (the Base Account contract), from its factory on Base.
+  const FACTORY = "0x0BA5ED0c6AA8c49038F819E587E2633c4A9F428a";
+  const fAbi = parseAbi(["function createAccount(bytes[] owners, uint256 nonce) payable returns (address)", "function getAddress(bytes[] owners, uint256 nonce) view returns (address)"]);
+  const swOwners = [encodeAbiParameters([{ type: "address" }], [A2.address])];
+  const sw = await pubM.readContract({ address: FACTORY, abi: fAbi, functionName: "getAddress", args: [swOwners, 1n] });
+  const passes = async (...a) => { try { await S.assertPlainSender(...a); return true; } catch { return false; } };
+  ok((await pubM.getCode({ address: sw })) === undefined && (await passes(pubM, sw, null, MAIN)), "an undeployed smart wallet has no code, so the code check alone lets it through");
+  await throws(() => S.assertPlainSender(pubM, sw, { "0x2105": { atomic: { status: "supported" } } }, MAIN), /regular wallet/, "its wallet's own report refuses it");
+  await pubM.waitForTransactionReceipt({ hash: await walM.writeContract({ address: FACTORY, abi: fAbi, functionName: "createAccount", args: [swOwners, 1n] }) });
+  await throws(() => S.assertPlainSender(pubM, sw, null, MAIN), /contract code/, "a deployed smart wallet is refused by its code, with no report needed");
+  ok(/^0xef0100[0-9a-f]{40}$/i.test(await pubM.getCode({ address: A2.address })), "the public test account is EIP-7702-delegated on Base mainnet (anyone holding its known key can do that)");
+  ok(await passes(pubM, A2.address, null, MAIN), "a 7702-delegated regular wallet passes: it sends its own transactions, and its anchor above verified");
+  ok(await passes(pubM, privateKeyToAccount(keccak256(toHex("seal fresh key"))).address, null, MAIN), "a fresh regular wallet with no code passes");
+
+  // What the guard prevents, measured: the same anchor sent through the smart wallet's execute().
+  await pubM.waitForTransactionReceipt({ hash: await walM.sendTransaction({ to: sw, value: 10n ** 16n }) });
+  const planSW = S.buildAnchorTx({ chainId: MAIN, seals: [sM], feeWei: qM.wei });
+  const feeSW = await pubM.getBalance({ address: FEE_WALLET });
+  const hSW = await walM.writeContract({ address: sw, abi: parseAbi(["function execute(address target, uint256 value, bytes data) payable"]), functionName: "execute", args: [planSW.tx.to, planSW.tx.value, planSW.tx.data] });
+  const rcSW = await pubM.waitForTransactionReceipt({ hash: hSW });
+  const inSW = (await pubM.getTransaction({ hash: hSW })).input.toLowerCase();
+  ok(rcSW.status === "success" && (await pubM.getBalance({ address: FEE_WALLET })) - feeSW === qM.wei, "through a smart wallet the fee still moves");
+  ok(!inSW.endsWith("80218021802180218021802180218021") && inSW.includes(S.BUILDER_SUFFIX.slice(2)), "but the Builder Code ends up inside, under padding, where Base does not read it");
+  r = await S.verifySeal(S.attachAnchor([sM], planSW.leaves, planSW.root, hSW)[0], { client: pubM });
+  ok(!r.ok && r.checks.find((c) => c.name === "anchor transaction").ok === false, "and the seal cannot be verified: the transaction does not start with the anchor");
 } finally {
   anvil2.kill();
 }

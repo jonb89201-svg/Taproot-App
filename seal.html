@@ -133,6 +133,7 @@ main{max-width:720px;margin:0 auto;padding:16px}
     <div class="card">
       <h2>Anchor seals on Base <span class="badge">beta</span></h2>
       <p class="hint">One transaction carries a Merkle root of every seal you add. Each seal gets its own proof back.</p>
+      <p class="hint">Anchor from a regular wallet. Smart wallets, a Base Account for one, can sign seals but can't anchor them yet.</p>
       <div class="field"><label>Signed seals (.json, several allowed)</label><input type="file" id="a-files" accept=".json,application/json" multiple /></div>
       <div id="a-list" class="mono"></div>
       <div class="fee" id="a-fee">—</div>
@@ -334,6 +335,9 @@ $("a-go").onclick = async () => {
   const id = Number($("chain").value); msg("a-msg", ""); $("a-done").textContent = "";
   try {
     const a = await connect();
+    let caps = null;
+    try { caps = await (await getProvider()).request({ method: "wallet_getCapabilities", params: [a] }); } catch { /* not offered: a plain wallet */ }
+    await S.assertPlainSender(S.clientFor(id), a, caps, id);   // a smart wallet's anchor can't be verified, and its Builder Code wouldn't count
     await refreshFee(); if (!quote || Number($("chain").value) !== id) throw new Error("No fee quote for this network.");
     await S.assertPlainFeeAddress(S.clientFor(id), id);   // a contract fee address would revert after the gas is spent
     const plan = S.buildAnchorTx({ chainId: id, seals: state.batch, feeWei: quote.wei });

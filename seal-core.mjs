@@ -264,6 +264,36 @@ export async function assertPlainFeeAddress(client, chainId) {
   return getAddress(c.feeAddress);
 }
 
+// ---------- who may send an anchor ----------
+// An anchor must come from a regular wallet (an EOA). A smart wallet wraps the call in its own execute(). The fee
+// still moves, but the transaction no longer starts with the anchor, so the seal can't be verified, and the
+// Builder Code sits under ABI padding, so Base doesn't count it. MEASURED 2026-10-15 on a fork of Base mainnet
+// with a Coinbase Smart Wallet. Signing a seal with a smart wallet is unaffected.
+export const ANCHOR_SENDER_HINT = "Anchor from a regular wallet. Smart wallets, a Base Account for one, can sign seals, but an anchor sent from one can't be verified and its Builder Code doesn't count.";
+
+// EIP-5792: a wallet that reports atomic "supported" for this chain runs calls as a smart account. "atomicBatch"
+// is the earlier name of that capability, and "0x0" holds capabilities that apply to every chain.
+export function smartAccountFrom(capabilities, chainId) {
+  if (!capabilities || typeof capabilities !== "object") return false;
+  for (const key of ["0x" + Number(chainId).toString(16), "0x0"]) {
+    const c = capabilities[key];
+    if (c && (c.atomic?.status === "supported" || c.atomicBatch?.supported === true)) return true;
+  }
+  return false;
+}
+
+// Refuses a smart-wallet sender: one with contract code, or one its wallet reports as a smart account. An undeployed
+// Base Account has no code yet, so the wallet's report is what catches it. An EIP-7702 account (its code is only
+// 0xef0100 + a delegate address) is still a regular wallet that sends its own transactions, and its anchors verify
+// (MEASURED 2026-10-15 on the Base mainnet fork, where the public test accounts are 7702-delegated). So that marker
+// alone doesn't refuse it; its wallet's report still does if it runs calls as a smart account.
+const EIP7702_DELEGATION = /^0xef0100[0-9a-fA-F]{40}$/;
+export async function assertPlainSender(client, sender, capabilities, chainId) {
+  const code = await client.getCode({ address: sender });
+  if (code && code !== "0x" && !EIP7702_DELEGATION.test(code)) throw new Error(ANCHOR_SENDER_HINT + " (" + getAddress(sender) + " has contract code.)");
+  if (smartAccountFrom(capabilities, chainId)) throw new Error(ANCHOR_SENDER_HINT + " (Your wallet reports that it runs as a smart account.)");
+}
+
 // After the transaction lands, write each seal's own proof into it.
 export function attachAnchor(seals, leaves, root, txHash) {
   return seals.map((s, i) => ({ ...s, anchor: { txHash, root, proof: merkleProof(leaves, i) } }));

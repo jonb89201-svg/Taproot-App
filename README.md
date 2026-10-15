@@ -55,13 +55,22 @@ panel and the contract drift apart, and if the rail points at the pre-fix factor
   - The Safe can't be the fee address itself: an anchor is ETH plus data, and the Safe reverts on that, while a plain
     transfer into it succeeds (MEASURED 2026-10-15 on a fork of Base mainnet).
   - So the page refuses any fee address that has contract code.
+- **Who can anchor: a regular wallet.**
+  - Smart wallets (a Base Account, for one) can sign seals, but the page won't send an anchor from one. A smart
+    wallet wraps the call in its own `execute()`: the fee still moves, but the transaction no longer starts with the
+    anchor, so the seal can't be verified, and the Builder Code sits under padding, so Base doesn't count it
+    (MEASURED 2026-10-15 on a Base mainnet fork with a Coinbase Smart Wallet).
+  - The page refuses a sender with contract code, or one whose wallet reports through EIP-5792 that it runs as a smart
+    account. That report is what catches a Base Account that isn't deployed yet.
+  - An EIP-7702 account still sends its own transactions, and its anchors verify, so its delegation marker alone
+    doesn't refuse it.
 - **Networks.** Base mainnet is the default. Base Sepolia moves test ETH only.
 
 **Tests.** `npm install`, then:
 
 | Command | What it runs |
 |---|---|
-| `npm test` | ABI sync, plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why the Treasury Safe can't be paid directly |
+| `npm test` | ABI sync, plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
 

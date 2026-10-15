@@ -53,6 +53,10 @@ try {
       async request({ method, params }) {
         if (method === "eth_requestAccounts" || method === "eth_accounts") return [window.__acct];
         if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") return null;
+        if (method === "wallet_getCapabilities") {         // a plain wallet does not offer it; a test can make it report a smart account
+          if (window.__caps) return window.__caps;
+          const e = new Error("unsupported method"); e.code = 4200; throw e;
+        }
         if (method === "eth_sendTransaction") params = [{ ...params[0], from: window.__acct }];
         const res = await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }) });
         const j = await res.json();
@@ -151,6 +155,25 @@ try {
   await page.click("#v-run");
   await page.waitForFunction(() => /Some checks failed|Every check/.test(document.getElementById("v-msg").textContent), null, { timeout: 30000 });
   ok(/Some checks failed/.test(await page.textContent("#v-msg")), "a different document is caught by Verify");
+
+  // 5b. smart-wallet senders are refused before anything is sent: their anchor can't be verified, and the Builder
+  //     Code wouldn't count (MEASURED on the mainnet fork in test/seal.test.mjs)
+  const refusedBefore = async (setup, re, name) => {
+    await page.evaluate(setup);
+    await page.click('.tabs button[data-tab="anchor"]');
+    await page.setInputFiles("#a-files", { name: "seal.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(seal)) });
+    await page.waitForFunction(() => !document.getElementById("a-go").disabled, null, { timeout: 30000 });
+    const [bal, blk] = [await pub.getBalance({ address: feeTo }), await pub.getBlockNumber()];
+    await page.click("#a-go");
+    // wait for any outcome (refused, or sent and anchored), so a missing guard fails here instead of timing out
+    await page.waitForFunction(() => /err/.test(document.getElementById("a-msg").className) || /Anchored in block/.test(document.getElementById("a-msg").textContent), null, { timeout: 60000 });
+    const m = await page.textContent("#a-msg");
+    ok(re.test(m) && (await pub.getBalance({ address: feeTo })) === bal && (await pub.getBlockNumber()) === blk, name + ": " + m.slice(0, 60) + "…");
+  };
+  await refusedBefore(() => { window.__caps = { "0x14a34": { atomic: { status: "supported" } } }; }, /Anchor from a regular wallet.*runs as a smart account/, "a wallet that reports a smart account is refused, and nothing is sent");
+  await refusedBefore((feed) => { window.__caps = null; window.__acct = window.__seal.S.CHAINS[84532].ethUsdFeed; }, /Anchor from a regular wallet.*has contract code/, "a sender with contract code is refused, and nothing is sent");
+  await page.evaluate((a) => { window.__acct = a; }, ACC[0]);
+  ok(/Anchor from a regular wallet/.test(await page.textContent("#tab-anchor")), "the Anchor tab says to anchor from a regular wallet");
 
   // 6. a network without a fee address stays closed, even when another network's quote lands after the switch
   await page.evaluate(() => { window.__seal.S.CHAINS[8453].feeAddress = null; });
