@@ -67,8 +67,8 @@ main{max-width:720px;margin:0 auto;padding:16px}
     <a class="brand" href="./"><img src="taproot-logo.png?v=4" alt="Taproot" /> Seal 🦭</a>
     <div class="spacer"></div>
     <select id="chain" aria-label="Network" style="width:auto">
-      <option value="84532">Base Sepolia (beta)</option>
       <option value="8453">Base</option>
+      <option value="84532">Base Sepolia (test ETH)</option>
     </select>
     <button id="connect">Connect wallet</button>
     <span class="addr" id="who"></span>
@@ -304,14 +304,16 @@ let quote = null, quoteSeq = 0;
 async function refreshFee() {
   const id = Number($("chain").value), c = S.CHAINS[id], seq = ++quoteSeq;
   $("a-go").disabled = true; quote = null;
-  if (!c.feeAddress) { $("a-fee").textContent = "Anchoring on " + c.name + " opens once its fee address is set. Use Base Sepolia for the beta."; return; }
+  if (!c.feeAddress) { $("a-fee").textContent = "Anchoring on " + c.name + " opens once its fee address is set."; return; }
   try {
-    const q = await S.quoteFee(S.clientFor(id), id);
+    const client = S.clientFor(id);
+    const [feeTo, q] = await Promise.all([S.assertPlainFeeAddress(client, id), S.quoteFee(client, id)]);
     if (seq !== quoteSeq) return; // the network changed while this quote was in flight
     quote = q;
-    $("a-fee").textContent = "Fee: $0.02 = " + formatEther(quote.wei) + " ETH (ETH/USD " + (Number(quote.answer) / 10 ** quote.decimals).toFixed(2) + " from Chainlink), plus network gas.";
+    $("a-fee").textContent = "Fee: $0.02 = " + formatEther(quote.wei) + " ETH (ETH/USD " + (Number(quote.answer) / 10 ** quote.decimals).toFixed(2) +
+      " from Chainlink) to the Seal fee wallet " + short(feeTo) + ", swept into the STEEL Treasury (" + short(S.STEEL_TREASURY_SAFE) + "), plus network gas.";
     $("a-go").disabled = state.batch.length === 0;
-  } catch (e) { if (seq === quoteSeq) $("a-fee").textContent = "Could not price the fee: " + e.message; }
+  } catch (e) { if (seq === quoteSeq) $("a-fee").textContent = "Anchoring is off: " + e.message; }
 }
 $("chain").onchange = refreshFee;
 $("a-files").onchange = async () => {
@@ -333,6 +335,7 @@ $("a-go").onclick = async () => {
   try {
     const a = await connect();
     await refreshFee(); if (!quote || Number($("chain").value) !== id) throw new Error("No fee quote for this network.");
+    await S.assertPlainFeeAddress(S.clientFor(id), id);   // a contract fee address would revert after the gas is spent
     const plan = S.buildAnchorTx({ chainId: id, seals: state.batch, feeWei: quote.wei });
     await onChain(id);
     msg("a-msg", "Check your wallet: one transaction of " + formatEther(quote.wei) + " ETH to " + short(plan.tx.to) + ", carrying the root of " + state.batch.length + " seal(s).");

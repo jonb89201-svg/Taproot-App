@@ -1,9 +1,10 @@
 // Seal tests. node test/seal.test.mjs
 //   Offline part: always runs.
-//   Fork part: needs anvil (Foundry) and network to https://sepolia.base.org. It forks
-//   Base Sepolia, reads the real Chainlink ETH/USD feed, sends a real anchor transaction
-//   and checks ERC-1271 and ERC-6492 signatures. When anvil is missing it prints SKIP
-//   and the run exits 2, so it can never be counted as a pass.
+//   Fork part: needs anvil (Foundry) and network to https://sepolia.base.org and
+//   https://mainnet.base.org. It forks Base Sepolia, reads the real Chainlink ETH/USD feed,
+//   sends a real anchor transaction and checks ERC-1271 and ERC-6492 signatures; then it
+//   forks Base mainnet and anchors to the real fee wallet. When anvil is missing it prints
+//   SKIP and the run exits 2, so it can never be counted as a pass.
 // Keys: anvil's public, well-known test keys only. Nothing here holds value.
 import fs from "fs";
 import path from "path";
@@ -26,6 +27,8 @@ const K1 = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 const K2 = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
 const A0 = privateKeyToAccount(K0), A1 = privateKeyToAccount(K1), A2 = privateKeyToAccount(K2);
 const CHAIN = 84532;
+// The Seal fee wallet, pinned here so that changing where fees go is never an accident.
+const FEE_WALLET = "0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9";
 
 async function signed(seal, ...accts) {
   const s = structuredClone(seal);
@@ -90,7 +93,14 @@ const data = S.anchorCalldata(root);
 ok(data.startsWith(S.ANCHOR_MAGIC) && data.endsWith(S.BUILDER_SUFFIX.slice(2)), "calldata = SEAL magic + root + Builder Code suffix");
 ok(S.decodeAnchor(data) === root, "decodeAnchor recovers the root");
 ok(S.decodeAnchor("0xdeadbeef" + root.slice(2)) === null, "other calldata is not read as an anchor");
-await throws(() => S.buildAnchorTx({ chainId: 8453, seals: [two], feeWei: 1n }), /not enabled/, "mainnet anchoring stays off until the fee address is set");
+ok(S.buildAnchorTx({ chainId: 8453, seals: [otherChain], feeWei: 1n }).tx.to === FEE_WALLET, "Base mainnet anchoring is on, and its fee goes to the Seal fee wallet");
+ok(S.CHAINS[CHAIN].feeAddress === FEE_WALLET, "Base Sepolia's fee goes to the same wallet");
+{
+  const saved = S.CHAINS[8453].feeAddress;
+  S.CHAINS[8453].feeAddress = null;
+  await throws(() => S.buildAnchorTx({ chainId: 8453, seals: [otherChain], feeWei: 1n }), /not enabled/, "a network without a fee address cannot anchor");
+  S.CHAINS[8453].feeAddress = saved;
+}
 await throws(() => S.buildAnchorTx({ chainId: CHAIN, seals: [base], feeWei: 1n }), /signed/, "an unsigned seal cannot be anchored");
 
 // ---------- fork ----------
@@ -134,6 +144,14 @@ try {
   ok((await pub.getBalance({ address: feeTo })) - before === q.wei, "the fee address received exactly the quoted fee");
   const sent = await pub.getTransaction({ hash: txHash });
   ok(sent.input.toLowerCase().endsWith(S.BUILDER_SUFFIX.slice(2)), "the anchor transaction carries the Builder Code suffix on-chain");
+
+  ok((await S.assertPlainFeeAddress(pub, CHAIN)) === FEE_WALLET, "the fee wallet has no code, so anchors to it can land");
+  {
+    const saved = S.CHAINS[CHAIN].feeAddress;
+    S.CHAINS[CHAIN].feeAddress = S.CHAINS[CHAIN].ethUsdFeed;                 // any contract
+    await throws(() => S.assertPlainFeeAddress(pub, CHAIN), /is a contract/, "a fee address with contract code is refused before anchoring");
+    S.CHAINS[CHAIN].feeAddress = saved;
+  }
 
   const anchored = S.attachAnchor([two, s2], plan.leaves, plan.root, txHash);
   for (const [i, a] of anchored.entries()) {
@@ -184,6 +202,48 @@ try {
   ok((await pub.getCode({ address: cf })) === undefined, "verifying it did not deploy the wallet (deployless check)");
 } finally {
   anvil.kill();
+}
+
+// ---------- fork of Base mainnet: the production fee path ----------
+console.log("Seal: fork of Base mainnet");
+const MAIN = 8453, PORT2 = PORT + 1;
+const anvil2 = spawn(anvilBin, ["--fork-url", process.env.SEAL_FORK_RPC_MAINNET || "https://mainnet.base.org", "--port", String(PORT2), "--silent"], { stdio: "ignore" });
+const RPC2 = `http://127.0.0.1:${PORT2}`;
+const chainM = { id: MAIN, name: "Base (fork)", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [RPC2] } } };
+const pubM = createPublicClient({ chain: chainM, transport: http(RPC2) });
+const walM = createWalletClient({ account: A2, chain: chainM, transport: http(RPC2) });
+try {
+  for (let i = 0; i < 60; i++) { try { await pubM.getChainId(); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
+  ok((await pubM.getChainId()) === MAIN, "anvil forked Base mainnet (chainId 8453)");
+  const qM = await S.quoteFee(pubM, MAIN, Number((await pubM.getBlock()).timestamp));
+  console.log(`    ETH/USD ${Number(qM.answer) / 10 ** qM.decimals}, fee ${qM.wei} wei`);
+  ok(qM.decimals === 8 && qM.wei * qM.answer >= 2000000n * 10n ** 18n, "the mainnet Chainlink feed prices the fee at $0.02 or more");
+  ok((await S.assertPlainFeeAddress(pubM, MAIN)) === FEE_WALLET, "on mainnet the fee wallet is a plain wallet (no code)");
+
+  const sM = await signed(S.newSeal({ chainId: MAIN, docHash, title: "Lease, unit 4", sealedAt: 1791900000 }), A0);
+  const planM = S.buildAnchorTx({ chainId: MAIN, seals: [sM], feeWei: qM.wei });
+  const beforeM = await pubM.getBalance({ address: FEE_WALLET });
+  const hM = await walM.sendTransaction(planM.tx);
+  const rcM = await pubM.waitForTransactionReceipt({ hash: hM });
+  ok(rcM.status === "success" && (await pubM.getBalance({ address: FEE_WALLET })) - beforeM === qM.wei, "a mainnet anchor lands and the fee wallet receives exactly the quoted fee");
+  ok((await pubM.getTransaction({ hash: hM })).input.toLowerCase().endsWith(S.BUILDER_SUFFIX.slice(2)), "the mainnet anchor carries the Builder Code");
+  r = await S.verifySeal(S.attachAnchor([sM], planM.leaves, planM.root, hM)[0], { client: pubM, fileHash: docHash });
+  ok(r.ok && r.anchoredAt.block === Number(rcM.blockNumber), "the mainnet-anchored seal verifies on-chain");
+
+  // Why the fee does not go straight to the STEEL Treasury Safe, and why the sweep works.
+  const viaSafe = await walM.sendTransaction({ ...planM.tx, to: S.STEEL_TREASURY_SAFE, gas: 200000n });
+  ok((await pubM.waitForTransactionReceipt({ hash: viaSafe })).status === "reverted", "an anchor sent straight to the STEEL Treasury Safe reverts (ETH plus data)");
+  const safeBefore = await pubM.getBalance({ address: S.STEEL_TREASURY_SAFE });
+  const sweep = await walM.sendTransaction({ to: S.STEEL_TREASURY_SAFE, value: qM.wei });
+  ok((await pubM.waitForTransactionReceipt({ hash: sweep })).status === "success" && (await pubM.getBalance({ address: S.STEEL_TREASURY_SAFE })) - safeBefore === qM.wei, "a plain transfer (the sweep) into the Treasury Safe lands");
+  {
+    const saved = S.CHAINS[MAIN].feeAddress;
+    S.CHAINS[MAIN].feeAddress = S.STEEL_TREASURY_SAFE;
+    await throws(() => S.assertPlainFeeAddress(pubM, MAIN), /is a contract/, "pointing the fee address at the Treasury Safe is refused before anchoring");
+    S.CHAINS[MAIN].feeAddress = saved;
+  }
+} finally {
+  anvil2.kill();
 }
 
 console.log(`RESULT: ${pass}/${pass + fail} PASS`);
