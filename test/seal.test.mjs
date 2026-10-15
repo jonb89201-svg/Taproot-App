@@ -63,9 +63,31 @@ await throws(() => S.validateSeal({ ...base, chainId: 1 }), /chainId/, "rejects 
 await throws(() => S.validateSeal({ ...two, signatures: [two.signatures[0], two.signatures[0]] }), /duplicate/, "rejects a duplicate signer");
 await throws(() => S.validateSeal({ ...base, signatures: [{ signer: "0xnope", signature: "0x00" }] }), /signer/, "rejects a malformed signer");
 
-const link = S.toLink("https://taproot.possessio.io/seal.html", two);
-ok(JSON.stringify(S.fromFragment(new URL(link).hash)) === JSON.stringify(two), "share link round-trips the seal exactly");
-await throws(async () => S.fromFragment("#seal=" + Buffer.from(JSON.stringify({ ...two, seal: 9 })).toString("base64url")), /format/, "a link carrying a bad seal is rejected");
+// Share links: the compact form (#s=), the old JSON form (#seal=), and what a link may not carry
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const viaLink = async (x) => {                     // a decode error is a failed check, not a crash
+  try { return await S.fromFragment(new URL(await S.toLink("https://taproot.possessio.io/seal", x)).hash); } catch (e) { return { error: e.message }; }
+};
+const link = await S.toLink("https://taproot.possessio.io/seal", two);
+ok(new URL(link).hash.startsWith("#s=") && same(await S.fromFragment(new URL(link).hash), two), "a compact link round-trips the seal exactly, its signers recovered from their signatures");
+const legacy = "https://taproot.possessio.io/seal#seal=" + Buffer.from(JSON.stringify(two)).toString("base64url");
+ok(link.length * 2 < legacy.length, `the compact link is under half the length of the old JSON link (${link.length} vs ${legacy.length} chars)`);
+ok(same(await S.fromFragment(new URL(legacy).hash), two), "an old JSON link (#seal=) still opens");
+await throws(async () => S.fromFragment("#seal=" + Buffer.from(JSON.stringify({ ...two, seal: 9 })).toString("base64url")), /format/, "an old link carrying a bad seal is rejected");
+const uni = await signed(S.newSeal({ chainId: CHAIN, docHash, title: "Lease 🦭 unit 4 — ✓ 契約", sealedAt: 1791900000 }), A1);
+ok(same(await viaLink(uni), uni), "a title in any script round-trips");
+const withSmart = structuredClone(two); withSmart.signatures.push({ signer: getAddress("0x" + "11".repeat(20)), signature: "0x" + "ab".repeat(200) });
+ok(same(await viaLink(withSmart), withSmart), "a smart-wallet signature keeps its signer in the link");
+const anchoredSeal = { ...two, anchor: { txHash: "0x" + "cd".repeat(32), root: "0x" + "ef".repeat(32), proof: ["0x" + "01".repeat(32), "0x" + "02".repeat(32)] } };
+ok(same(await viaLink(anchoredSeal), anchoredSeal), "an anchored seal round-trips with its proof");
+const raw = Buffer.from(new URL(link).hash.slice(3), "base64url");
+await throws(() => S.fromFragment("#s=" + raw.subarray(0, raw.length - 3).toString("base64url")), /cut short/, "a cut-short link is rejected");
+await throws(() => S.fromFragment("#s=" + Buffer.concat([raw, Buffer.from([0])]).toString("base64url")), /unexpected bytes/, "a link with extra bytes is rejected");
+const badVersion = Buffer.from(raw); badVersion[0] = 9;
+await throws(() => S.fromFragment("#s=" + badVersion.toString("base64url")), /unknown version/, "an unknown link version is rejected");
+const flipped = Buffer.from(raw); flipped[raw.length - 10] ^= 1;             // inside the last signature
+let tampered = null; try { tampered = await S.fromFragment("#s=" + flipped.toString("base64url")); } catch { /* recovery may refuse it outright */ }
+ok(tampered === null || tampered.signatures[1].signer !== two.signatures[1].signer, "a changed signature byte never passes as the original signer");
 
 // Merkle
 for (const n of [1, 2, 3, 4, 5, 7, 8, 13]) {
@@ -208,6 +230,11 @@ try {
   r = await S.verifySeal(s6492, { client: pub });
   ok(r.ok, "an ERC-6492 signature from a not-yet-deployed wallet verifies");
   ok((await pub.getCode({ address: cf })) === undefined, "verifying it did not deploy the wallet (deployless check)");
+  const lower = (x) => JSON.stringify({ ...x, signatures: x.signatures.map((g) => ({ ...g, signer: g.signer.toLowerCase() })) });
+  for (const [name, x] of [["ERC-1271", sc], ["ERC-6492", s6492]]) {
+    const back = await S.fromFragment(new URL(await S.toLink("https://taproot.possessio.io/seal", x)).hash);
+    ok(lower(back) === lower(x) && (await S.verifySeal(back, { client: pub })).ok, `a real ${name} smart-wallet seal survives the compact link and still verifies`);
+  }
 } finally {
   anvil.kill();
 }

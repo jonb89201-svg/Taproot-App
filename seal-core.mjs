@@ -362,18 +362,88 @@ export async function verifySeal(seal, { client, fileHash } = {}) {
 }
 
 // ---------- share links (the seal travels in the URL fragment, never to a server) ----------
+// The compact link (#s=) carries the seal's fields as bytes, then base64url: about 40% of the length of the old JSON
+// link (#seal=), which still opens. A plain-wallet signature drops its signer, because the signer is recovered from
+// the signature. Any other signature (a smart wallet's) keeps its signer. Nothing in a link is trusted: the seal goes
+// through validateSeal(), and verifySeal() checks every signature again.
+const LINK_VERSION = 2;
+const b64uEncode = (u8) => { let bin = ""; for (const b of u8) bin += String.fromCharCode(b); return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+const b64uDecode = (str) => { const b64 = str.replace(/-/g, "+").replace(/_/g, "/"); return Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0)); };
+const hexBytes = (h) => Uint8Array.from(h.slice(2).match(/../g) || [], (x) => parseInt(x, 16));
+const bytesHex = (u8) => "0x" + Array.from(u8, (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function toLink(base, seal) {
-  const bytes = new TextEncoder().encode(JSON.stringify(seal));
-  let bin = ""; for (const b of bytes) bin += String.fromCharCode(b);
-  return base + "#seal=" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+function linkWriter() {
+  const out = [];
+  const w = {
+    u8: (b) => out.push(b & 255),
+    varint(n) { let v = BigInt(n); do { let b = Number(v & 127n); v >>= 7n; if (v) b |= 128; out.push(b); } while (v); },
+    raw: (u8) => { for (const b of u8) out.push(b); },
+    chunk: (u8) => { w.varint(u8.length); w.raw(u8); },
+    done: () => Uint8Array.from(out),
+  };
+  return w;
+}
+function linkReader(u8) {
+  let i = 0;
+  const need = (n) => { if (i + n > u8.length) throw new Error("invalid seal link: it is cut short"); };
+  const r = {
+    u8: () => { need(1); return u8[i++]; },
+    varint() { let n = 0n, shift = 0n; for (;;) { const b = r.u8(); n |= BigInt(b & 127) << shift; if (!(b & 128)) return n; shift += 7n; if (shift > 63n) throw new Error("invalid seal link: bad number"); } },
+    raw: (n) => { need(n); const b = u8.slice(i, i + n); i += n; return b; },
+    chunk: (max) => { const n = Number(r.varint()); if (n > max) throw new Error("invalid seal link: a field is too long"); return r.raw(n); },
+    end: () => i === u8.length,
+  };
+  return r;
 }
 
-export function fromFragment(hash) {
-  const m = /(?:^#|&)seal=([A-Za-z0-9_-]+)/.exec(hash || "");
+export async function toLink(base, seal) {
+  validateSeal(seal);
+  const w = linkWriter(), td = typedDataFor(seal);
+  w.u8(LINK_VERSION); w.varint(seal.chainId); w.raw(hexBytes(seal.docHash)); w.varint(seal.sealedAt);
+  w.chunk(new TextEncoder().encode(seal.title));
+  w.varint(seal.signatures.length);
+  for (const g of seal.signatures) {
+    let recovered = null;
+    try { recovered = await recoverTypedDataAddress({ ...td, signature: g.signature }); } catch { /* not a plain signature */ }
+    const plain = recovered !== null && recovered.toLowerCase() === g.signer.toLowerCase();
+    w.u8(plain ? 0 : 1);
+    if (!plain) w.raw(hexBytes(getAddress(g.signer)));
+    w.chunk(hexBytes(g.signature));
+  }
+  if (seal.anchor) {
+    w.u8(1); w.raw(hexBytes(seal.anchor.txHash)); w.raw(hexBytes(seal.anchor.root));
+    w.varint(seal.anchor.proof.length); for (const p of seal.anchor.proof) w.raw(hexBytes(p));
+  } else w.u8(0);
+  return base + "#s=" + b64uEncode(w.done());
+}
+
+export async function fromFragment(hash) {
+  const legacy = /(?:^#|&)seal=([A-Za-z0-9_-]+)/.exec(hash || "");
+  if (legacy) return validateSeal(JSON.parse(new TextDecoder().decode(b64uDecode(legacy[1]))));
+  const m = /(?:^#|&)s=([A-Za-z0-9_-]+)/.exec(hash || "");
   if (!m) return null;
-  const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
-  const bin = atob(b64 + "===".slice((b64.length + 3) % 4));
-  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-  return validateSeal(JSON.parse(new TextDecoder().decode(bytes)));
+  const r = linkReader(b64uDecode(m[1]));
+  if (r.u8() !== LINK_VERSION) throw new Error("invalid seal link: unknown version");
+  const chainId = Number(r.varint()), docHash = bytesHex(r.raw(32)), sealedAt = Number(r.varint());
+  const title = new TextDecoder("utf-8", { fatal: true }).decode(r.chunk(TITLE_MAX * 4));
+  const seal = { seal: SEAL_FORMAT, chainId, hashAlg: "sha256", docHash, title, sealedAt, signatures: [] };
+  validateSeal(seal);                                   // chainId, title and time first: recovery needs them
+  const n = Number(r.varint());
+  if (n > SIGNERS_MAX) throw new Error("invalid seal link: too many signatures");
+  const td = typedDataFor(seal);
+  for (let k = 0; k < n; k++) {
+    const kind = r.u8();
+    if (kind > 1) throw new Error("invalid seal link: unknown signature kind");
+    const explicit = kind === 1 ? getAddress(bytesHex(r.raw(20))) : null;
+    const signature = bytesHex(r.chunk(4096));
+    seal.signatures.push({ signer: explicit || (await recoverTypedDataAddress({ ...td, signature })), signature });
+  }
+  if (r.u8() === 1) {
+    const txHash = bytesHex(r.raw(32)), root = bytesHex(r.raw(32)), np = Number(r.varint());
+    if (np > 16) throw new Error("invalid seal link: proof too long");
+    const proof = []; for (let k = 0; k < np; k++) proof.push(bytesHex(r.raw(32)));
+    seal.anchor = { txHash, root, proof };
+  }
+  if (!r.end()) throw new Error("invalid seal link: unexpected bytes at the end");
+  return validateSeal(seal);
 }

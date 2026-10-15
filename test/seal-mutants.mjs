@@ -26,6 +26,9 @@ const MUTANTS = [
   ["a 7702 account refused as a contract", 'if (code && code !== "0x" && !EIP7702_DELEGATION.test(code)) throw new Error(ANCHOR_SENDER_HINT', 'if (code && code !== "0x") throw new Error(ANCHOR_SENDER_HINT'],
   ["smart-account report ignored", 'if (smartAccountFrom(capabilities, chainId)) throw', 'if (false) throw'],
   ["atomic 'ready' read as a smart account", 'c.atomic?.status === "supported"', 'c.atomic?.status !== "unsupported"'],
+  ["link drops smart-wallet signers", "w.u8(plain ? 0 : 1);\n    if (!plain) w.raw(hexBytes(getAddress(g.signer)));", "w.u8(0);\n    if (false) w.raw(hexBytes(getAddress(g.signer)));"],
+  ["old JSON links no longer open", "if (legacy) return validateSeal(", "if (false) return validateSeal("],
+  ["link accepts extra bytes", 'if (!r.end()) throw new Error("invalid seal link: unexpected bytes at the end");', ""],
   ["fee wallet changed", 'feeAddress: "0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9",\n  },\n  84532', 'feeAddress: "0x19495180FFA00B8311c85DCF76A89CCbFB174EA0",\n  },\n  84532'],
 ];
 
