@@ -69,7 +69,7 @@ const viaLink = async (x) => {                     // a decode error is a failed
   try { return await S.fromFragment(new URL(await S.toLink("https://taproot.possessio.io/seal", x)).hash); } catch (e) { return { error: e.message }; }
 };
 const link = await S.toLink("https://taproot.possessio.io/seal", two);
-ok(new URL(link).hash.startsWith("#s=") && same(await S.fromFragment(new URL(link).hash), two), "a compact link round-trips the seal exactly, its signers recovered from their signatures");
+ok(new URL(link).hash.startsWith("#s=") && same(await S.fromFragment(new URL(link).hash).catch((e) => ({ error: e.message })), two), "a compact link round-trips the seal exactly, its signers recovered from their signatures");
 const legacy = "https://taproot.possessio.io/seal#seal=" + Buffer.from(JSON.stringify(two)).toString("base64url");
 ok(link.length * 2 < legacy.length, `the compact link is under half the length of the old JSON link (${link.length} vs ${legacy.length} chars)`);
 ok(same(await S.fromFragment(new URL(legacy).hash), two), "an old JSON link (#seal=) still opens");
@@ -85,9 +85,20 @@ await throws(() => S.fromFragment("#s=" + raw.subarray(0, raw.length - 3).toStri
 await throws(() => S.fromFragment("#s=" + Buffer.concat([raw, Buffer.from([0])]).toString("base64url")), /unexpected bytes/, "a link with extra bytes is rejected");
 const badVersion = Buffer.from(raw); badVersion[0] = 9;
 await throws(() => S.fromFragment("#s=" + badVersion.toString("base64url")), /unknown version/, "an unknown link version is rejected");
-const flipped = Buffer.from(raw); flipped[raw.length - 10] ^= 1;             // inside the last signature
-let tampered = null; try { tampered = await S.fromFragment("#s=" + flipped.toString("base64url")); } catch { /* recovery may refuse it outright */ }
-ok(tampered === null || tampered.signatures[1].signer !== two.signatures[1].signer, "a changed signature byte never passes as the original signer");
+// One changed byte anywhere (a field, a signer check, a signature) must be refused. Without the signer check, most
+// changes recovered a stranger's address and the seal still verified (MEASURED 2026-10-15: 284 of 438).
+let accepted = 0;
+for (let i = 0; i < raw.length; i++) for (const mask of [0x01, 0x80, 0xff]) {
+  const b = Buffer.from(raw); b[i] ^= mask;
+  try { await S.fromFragment("#s=" + b.toString("base64url")); accepted++; } catch { /* refused */ }
+}
+ok(accepted === 0, `every one-byte change to a compact link is refused (${raw.length * 3} changes, ${accepted} accepted)`);
+// A version-2 link, made by the page on 2026-10-15 before the signer check, still opens. Throwaway signer.
+const V2 = "#s=ArSUBdlGakNJRu5-KCVxpMguKkZ-OdfdT4uP6qNqJBcmtoZNzeXD1gYjU2VhbCB0ZXN0IDIwMjYtMTAtMTUgKEJhc2UgU2Vwb2xpYSkBAEEs8es3Uau4VnF0-bG2t6lSXBJOSld-QM1YjFaolE40Mmz3Ik1yd3Z8EC9Jz8od3IznC49WHMfQ6dfaCFKTGgWHHAA";
+const v2 = await S.fromFragment(V2).catch((e) => ({ error: e.message }));   // a decode error is a failed check
+ok(v2.title === "Seal test 2026-10-15 (Base Sepolia)" && v2.signatures?.[0].signer === "0xB7180B747D2f4786ae676e25c1C2bFA2C6A5f97d", "a version-2 link (no signer check) still opens");
+const v3 = v2.error ? "" : new URL(await S.toLink("https://taproot.possessio.io/seal", v2)).hash;
+ok(v3.startsWith("#s=") && Buffer.from(v3.slice(3), "base64url")[0] === 3 && same(await S.fromFragment(v3).catch(() => null), v2), "re-shared, it becomes a version-3 link with the signer check");
 
 // Merkle
 for (const n of [1, 2, 3, 4, 5, 7, 8, 13]) {
@@ -232,8 +243,8 @@ try {
   ok((await pub.getCode({ address: cf })) === undefined, "verifying it did not deploy the wallet (deployless check)");
   const lower = (x) => JSON.stringify({ ...x, signatures: x.signatures.map((g) => ({ ...g, signer: g.signer.toLowerCase() })) });
   for (const [name, x] of [["ERC-1271", sc], ["ERC-6492", s6492]]) {
-    const back = await S.fromFragment(new URL(await S.toLink("https://taproot.possessio.io/seal", x)).hash);
-    ok(lower(back) === lower(x) && (await S.verifySeal(back, { client: pub })).ok, `a real ${name} smart-wallet seal survives the compact link and still verifies`);
+    const back = await viaLink(x);
+    ok(!back.error && lower(back) === lower(x) && (await S.verifySeal(back, { client: pub })).ok, `a real ${name} smart-wallet seal survives the compact link and still verifies`);
   }
 } finally {
   anvil.kill();

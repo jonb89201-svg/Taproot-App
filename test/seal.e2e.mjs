@@ -117,6 +117,17 @@ try {
   await p2.reload();
   await p2.waitForFunction(() => window.__seal && window.__seal.state.seal);
   ok((await p2.textContent("#s-title")) === "Lease, unit 4" && (await p2.$$eval("#s-sigs .sig", (x) => x.length)) === 2, "an old JSON link (#seal=) still opens in the page");
+  // a version-2 link (2026-10-15, before the signer check) still opens; throwaway signer
+  await p2.goto(WEB + "/seal.html#s=ArSUBdlGakNJRu5-KCVxpMguKkZ-OdfdT4uP6qNqJBcmtoZNzeXD1gYjU2VhbCB0ZXN0IDIwMjYtMTAtMTUgKEJhc2UgU2Vwb2xpYSkBAEEs8es3Uau4VnF0-bG2t6lSXBJOSld-QM1YjFaolE40Mmz3Ik1yd3Z8EC9Jz8od3IznC49WHMfQ6dfaCFKTGgWHHAA");
+  await p2.reload();
+  await p2.waitForFunction(() => window.__seal && window.__seal.state.seal);
+  ok((await p2.textContent("#s-sigs .sig")) === "0xB7180B747D2f4786ae676e25c1C2bFA2C6A5f97d", "a version-2 short link still opens in the page");
+  // one changed character: refused as damaged, never shown under a stranger's address
+  const at = link.length - 12, damaged = link.slice(0, at) + (link[at] === "A" ? "B" : "A") + link.slice(at + 1);
+  await p2.goto(damaged);
+  await p2.reload();
+  await p2.waitForFunction(() => window.__seal);
+  ok(/damaged or changed/.test(await p2.textContent("#top-msg")) && !(await p2.evaluate(() => window.__seal.state.seal)), "a link with one changed character is refused as damaged");
   await p2.close();
 
   // 3. hostile title through a link is shown as text, never run
