@@ -17,32 +17,6 @@
   },
   {
     "type": "function",
-    "name": "AERODROME_CBETH_WETH_POOL",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "AERO_ROUTER",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IAerodromeSlipstreamRouter"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "CBETH",
     "inputs": [],
     "outputs": [
@@ -56,46 +30,7 @@
   },
   {
     "type": "function",
-    "name": "CBETH_PCT",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "CBETH_TICK_SPACING",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "int24",
-        "internalType": "int24"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "CHAINLINK",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IChainlinkFeed"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "CHAINLINK_DAI",
     "inputs": [],
     "outputs": [
       {
@@ -134,19 +69,6 @@
   },
   {
     "type": "function",
-    "name": "DAI",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IERC20"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "DEFAULT_ADMIN_ROLE",
     "inputs": [],
     "outputs": [
@@ -173,52 +95,13 @@
   },
   {
     "type": "function",
-    "name": "FEE_LST",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "FEE_STABLE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "GUARDIAN_DISABLE_DELAY",
+    "name": "FLOOR_BPS",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "GUARDIAN_ROLE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -264,6 +147,58 @@
   },
   {
     "type": "function",
+    "name": "MAX_AUCTION_LENGTH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_KICK_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MIN_AUCTION_LENGTH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MIN_KICK_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MORPHO_VAULT",
     "inputs": [],
     "outputs": [
@@ -271,19 +206,6 @@
         "name": "",
         "type": "address",
         "internalType": "contract IMorphoVault"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "OPERATOR_ROLE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -342,39 +264,39 @@
   },
   {
     "type": "function",
-    "name": "ROUTER",
+    "name": "PAYEE_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "SEQUENCER_GRACE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "SEQUENCER_UPTIME",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract ISwapRouter"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "SWEEP_DELAY",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "SWEEP_SLIPPAGE_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "internalType": "contract IChainlinkFeed"
       }
     ],
     "stateMutability": "view"
@@ -420,40 +342,8 @@
   },
   {
     "type": "function",
-    "name": "WETH",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IERC20"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "WINDOW_SIZE",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "armorLevelDays",
-    "inputs": [
-      {
-        "name": "dailyBurnRate",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
     "outputs": [
       {
         "name": "",
@@ -484,6 +374,32 @@
   },
   {
     "type": "function",
+    "name": "auctionLength",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "auctionsPaused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "automationForwarder",
     "inputs": [],
     "outputs": [
@@ -491,6 +407,19 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "canKick",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -510,13 +439,6 @@
   },
   {
     "type": "function",
-    "name": "cancelDailyLimitIncrease",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "cancelEmergencyWithdraw",
     "inputs": [
       {
@@ -525,13 +447,6 @@
         "internalType": "address"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "cancelGuardianDisable",
-    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -626,7 +541,7 @@
   },
   {
     "type": "function",
-    "name": "daiCeiling",
+    "name": "currentMultiplier",
     "inputs": [],
     "outputs": [
       {
@@ -639,46 +554,7 @@
   },
   {
     "type": "function",
-    "name": "dailyLimit",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "dailyLimitRef",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "dailyRemaining",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "dailyWithdrawn",
+    "name": "currentRequired",
     "inputs": [],
     "outputs": [
       {
@@ -704,26 +580,6 @@
         "internalType": "uint256"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "decreaseDailyLimit",
-    "inputs": [
-      {
-        "name": "newLimit",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "disableGuardian",
-    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -772,13 +628,6 @@
   },
   {
     "type": "function",
-    "name": "enableGuardian",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "executeAssetDailyLimitIncrease",
     "inputs": [
       {
@@ -787,13 +636,6 @@
         "internalType": "enum PossessioPayments.DailyLimitAsset"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "executeDailyLimitIncrease",
-    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -863,19 +705,6 @@
   {
     "type": "function",
     "name": "getCbETHBalance",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getDAIBalance",
     "inputs": [],
     "outputs": [
       {
@@ -969,85 +798,6 @@
   },
   {
     "type": "function",
-    "name": "guardianCancelAssetLimitIncrease",
-    "inputs": [
-      {
-        "name": "asset",
-        "type": "uint8",
-        "internalType": "enum PossessioPayments.DailyLimitAsset"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "guardianCancelDailyLimitIncrease",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "guardianCancelEmergency",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "guardianCount",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "guardianDisableExecuteAfter",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "guardianEnabled",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "guardianPause",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "hasRole",
     "inputs": [
       {
@@ -1061,19 +811,6 @@
         "internalType": "address"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isDaiReserveFull",
-    "inputs": [],
     "outputs": [
       {
         "name": "",
@@ -1104,7 +841,95 @@
   },
   {
     "type": "function",
-    "name": "lastSweepTime",
+    "name": "isPayee",
+    "inputs": [
+      {
+        "name": "who",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kick",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "kickDelay",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lastKickAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lot",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "usdc",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "startedAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "endsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lotOpen",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxKickUsdc",
     "inputs": [],
     "outputs": [
       {
@@ -1143,7 +968,7 @@
   },
   {
     "type": "function",
-    "name": "nextSweepAllowed",
+    "name": "nextKickAllowed",
     "inputs": [],
     "outputs": [
       {
@@ -1156,7 +981,7 @@
   },
   {
     "type": "function",
-    "name": "pauseUCR",
+    "name": "pauseAuctions",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1170,12 +995,44 @@
   },
   {
     "type": "function",
+    "name": "payeeActiveAt",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "performUpkeep",
     "inputs": [
       {
-        "name": "performData",
+        "name": "",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "proposePayee",
+    "inputs": [
+      {
+        "name": "who",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -1190,19 +1047,6 @@
         "type": "uint8",
         "internalType": "enum PossessioPayments.DailyLimitAsset"
       },
-      {
-        "name": "newLimit",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "queueDailyLimitIncrease",
-    "inputs": [
       {
         "name": "newLimit",
         "type": "uint256",
@@ -1251,14 +1095,7 @@
   },
   {
     "type": "function",
-    "name": "queueGuardianDisable",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "queueResumeUCR",
+    "name": "queueResumeAuctions",
     "inputs": [],
     "outputs": [
       {
@@ -1279,24 +1116,6 @@
         "internalType": "uint8"
       }
     ],
-    "outputs": [
-      {
-        "name": "newLimit",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "executeAfter",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "queuedLimitIncrease",
-    "inputs": [],
     "outputs": [
       {
         "name": "newLimit",
@@ -1337,6 +1156,19 @@
   },
   {
     "type": "function",
+    "name": "removePayee",
+    "inputs": [
+      {
+        "name": "who",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "renounceRole",
     "inputs": [
       {
@@ -1355,7 +1187,7 @@
   },
   {
     "type": "function",
-    "name": "resumeUCR",
+    "name": "resumeAuctions",
     "inputs": [
       {
         "name": "id",
@@ -1386,13 +1218,13 @@
   },
   {
     "type": "function",
-    "name": "routingPaused",
+    "name": "sellableUsdc",
     "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "bool",
-        "internalType": "bool"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1435,12 +1267,12 @@
   },
   {
     "type": "function",
-    "name": "setCbEthBps",
+    "name": "setAuctionLength",
     "inputs": [
       {
-        "name": "newBps",
-        "type": "uint16",
-        "internalType": "uint16"
+        "name": "seconds_",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "outputs": [],
@@ -1448,12 +1280,12 @@
   },
   {
     "type": "function",
-    "name": "setDaiCeiling",
+    "name": "setCbEthBps",
     "inputs": [
       {
-        "name": "newCeiling",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "newBps",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "outputs": [],
@@ -1474,7 +1306,20 @@
   },
   {
     "type": "function",
-    "name": "setMinSwapBatch",
+    "name": "setKickDelay",
+    "inputs": [
+      {
+        "name": "seconds_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMaxKickUsdc",
     "inputs": [
       {
         "name": "amount",
@@ -1487,20 +1332,10 @@
   },
   {
     "type": "function",
-    "name": "setSweepSlippageGuards",
+    "name": "setMinSwapBatch",
     "inputs": [
       {
-        "name": "minDai",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "minWeth",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "minCbEth",
+        "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1523,12 +1358,12 @@
   },
   {
     "type": "function",
-    "name": "setWithdrawalsFrozen",
+    "name": "setUsdcFloat",
     "inputs": [
       {
-        "name": "frozen",
-        "type": "bool",
-        "internalType": "bool"
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -1555,65 +1390,23 @@
   },
   {
     "type": "function",
-    "name": "sweep",
-    "inputs": [
-      {
-        "name": "minDaiOut",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "minWethOut",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "minCbEthOut",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "name": "take",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "sweepSlippageMinCbEth",
-    "inputs": [],
-    "outputs": [
+    "name": "takeWithCallback",
+    "inputs": [
       {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "sweepSlippageMinDai",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "sweepSlippageMinWeth",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1708,6 +1501,19 @@
   },
   {
     "type": "function",
+    "name": "usdcFloat",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "usdcWindowStart",
     "inputs": [],
     "outputs": [
@@ -1715,50 +1521,6 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "windowStart",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "withdrawDAI",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "to",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "withdrawalsFrozen",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -1841,6 +1603,76 @@
   },
   {
     "type": "event",
+    "name": "AuctionLengthUpdated",
+    "inputs": [
+      {
+        "name": "seconds_",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AuctionsPaused",
+    "inputs": [
+      {
+        "name": "by",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AuctionsResumeQueued",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "executeAfter",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AuctionsResumed",
+    "inputs": [
+      {
+        "name": "by",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "AutomationForwarderSet",
     "inputs": [
       {
@@ -1891,31 +1723,6 @@
   },
   {
     "type": "event",
-    "name": "CbEthAcquired",
-    "inputs": [
-      {
-        "name": "usdcIn",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "wethIntermediate",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "cbEthOut",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "CbEthBpsUpdated",
     "inputs": [
       {
@@ -1932,145 +1739,6 @@
       },
       {
         "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DAICeilingUpdated",
-    "inputs": [
-      {
-        "name": "newCeiling",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DAIRefillSkipped",
-    "inputs": [
-      {
-        "name": "reason",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
-      },
-      {
-        "name": "daiGap",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DAIReserveFilled",
-    "inputs": [
-      {
-        "name": "usdcIn",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "daiOut",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "newReserve",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DAIWithdrawn",
-    "inputs": [
-      {
-        "name": "by",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "to",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DailyLimitDecreased",
-    "inputs": [
-      {
-        "name": "newLimit",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DailyLimitIncreaseCancelled",
-    "inputs": [],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DailyLimitIncreaseExecuted",
-    "inputs": [
-      {
-        "name": "newLimit",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DailyLimitIncreaseQueued",
-    "inputs": [
-      {
-        "name": "newLimit",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "executeAfter",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2193,71 +1861,20 @@
   },
   {
     "type": "event",
-    "name": "GuardianCancelledAssetLimitIncrease",
+    "name": "KickDelayUpdated",
     "inputs": [
       {
-        "name": "guardian",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "asset",
-        "type": "uint8",
+        "name": "seconds_",
+        "type": "uint64",
         "indexed": false,
-        "internalType": "uint8"
+        "internalType": "uint64"
       }
     ],
     "anonymous": false
   },
   {
     "type": "event",
-    "name": "GuardianCancelledDailyLimitIncrease",
-    "inputs": [
-      {
-        "name": "guardian",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "GuardianCancelledEmergency",
-    "inputs": [
-      {
-        "name": "guardian",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "GuardianDisableCancelled",
-    "inputs": [
-      {
-        "name": "by",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "GuardianDisableQueued",
+    "name": "Kicked",
     "inputs": [
       {
         "name": "by",
@@ -2266,7 +1883,25 @@
         "internalType": "address"
       },
       {
-        "name": "executeAfter",
+        "name": "sellable",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "morphoIn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "lotUsdc",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "endsAt",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2276,16 +1911,10 @@
   },
   {
     "type": "event",
-    "name": "GuardianDisabled",
+    "name": "LotCancelled",
     "inputs": [
       {
-        "name": "by",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
+        "name": "usdc",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2295,16 +1924,10 @@
   },
   {
     "type": "event",
-    "name": "GuardianEnabled",
+    "name": "LotExpired",
     "inputs": [
       {
-        "name": "by",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
+        "name": "usdc",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2314,16 +1937,41 @@
   },
   {
     "type": "event",
-    "name": "GuardianPaused",
+    "name": "LotTaken",
     "inputs": [
       {
-        "name": "guardian",
+        "name": "taker",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "timestamp",
+        "name": "usdcOut",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "cbEthIn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "multiplier",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MaxKickUpdated",
+    "inputs": [
+      {
+        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2396,6 +2044,57 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ParOvershoot",
+    "inputs": [
+      {
+        "name": "taker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "multiplier",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PayeeProposed",
+    "inputs": [
+      {
+        "name": "payee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "activeAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PayeeRemoved",
+    "inputs": [
+      {
+        "name": "payee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -2481,156 +2180,6 @@
     "inputs": [
       {
         "name": "totalEthEquivalent",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "UCRPaused",
-    "inputs": [
-      {
-        "name": "by",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "UCRResumeQueued",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "executeAfter",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "UCRResumed",
-    "inputs": [
-      {
-        "name": "by",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "UCRSwept",
-    "inputs": [
-      {
-        "name": "usdcIn",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "cbEthOut",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "ethEquivalentAdded",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "UCRSweptDaiOnly",
-    "inputs": [
-      {
-        "name": "usdcIn",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "daiOut",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "UCRSweptFull",
-    "inputs": [
-      {
-        "name": "usdcIn",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "cbEthOut",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "morphoSharesOut",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "ethEquivalentAdded",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "timestamp",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2728,22 +2277,10 @@
   },
   {
     "type": "event",
-    "name": "WithdrawalsFrozenSet",
+    "name": "UsdcFloatUpdated",
     "inputs": [
       {
-        "name": "guardian",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "frozen",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
-      },
-      {
-        "name": "timestamp",
+        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2796,17 +2333,17 @@
   },
   {
     "type": "error",
+    "name": "AlreadyPayee",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BatchTooSmall",
     "inputs": []
   },
   {
     "type": "error",
     "name": "DailyLimitExceeded",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ExchangeRateInvalid",
     "inputs": []
   },
   {
@@ -2822,16 +2359,6 @@
   {
     "type": "error",
     "name": "ForwarderNotSet",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "GuardianDisableNotReady",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "GuardianNotEnabled",
     "inputs": []
   },
   {
@@ -2867,7 +2394,22 @@
   },
   {
     "type": "error",
+    "name": "KickTooEarly",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "LeakageDetected",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LotOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LotReserved",
     "inputs": []
   },
   {
@@ -2879,6 +2421,43 @@
     "type": "error",
     "name": "NoIncreaseQueued",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoLot",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoPayees",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NonCanonicalWiring",
+    "inputs": [
+      {
+        "name": "got",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "want",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotAPayee",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -2912,12 +2491,17 @@
   },
   {
     "type": "error",
-    "name": "ReentrancyGuardReentrantCall",
+    "name": "OutOfRange",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "RoutingPaused",
+    "name": "Paused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
     "inputs": []
   },
   {
@@ -2933,17 +2517,22 @@
   },
   {
     "type": "error",
-    "name": "SweepTooEarly",
+    "name": "SequencerDown",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SequencerGracePeriod",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ShortDelivery",
     "inputs": []
   },
   {
     "type": "error",
     "name": "TimelockNotPassed",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "Unauthorized",
     "inputs": []
   },
   {
@@ -2954,11 +2543,6 @@
   {
     "type": "error",
     "name": "UpkeepIsPaused",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "WithdrawalsFrozen",
     "inputs": []
   },
   {

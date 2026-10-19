@@ -23,6 +23,7 @@ import {
   createPublicClient,
   http,
   parseAbi,
+  formatEther,
 } from "viem";
 
 export const SEAL_FORMAT = 1;
@@ -56,6 +57,11 @@ export const CHAINS = {
 export const STEEL_TREASURY_SAFE = "0x19495180FFA00B8311c85DCF76A89CCbFB174EA0";
 
 export const FEE_USD_CENTS = 2n; // $0.02 per anchor transaction, however many seals it carries
+
+// A verifier accepts an anchor that paid at least this share of the fee, at the ETH/USD price in force at the
+// anchor's block. The page quotes moments before the wallet sends, and the price can move before the block that
+// takes the anchor. 500 bps of $0.02 is a tenth of a cent.
+export const FEE_TOLERANCE_BPS = 500n;
 
 // ERC-8021 data suffix for Builder Code "bc_ovheoidh" (same bytes as index.html's BUILDER).
 export const BUILDER_SUFFIX = "0x62635f6f7668656f6964680b0080218021802180218021802180218021";
@@ -211,12 +217,13 @@ export function feeWeiFrom({ answer, decimals, updatedAt, now, maxAgeS, cents = 
   return (num + den - 1n) / den;
 }
 
-export async function quoteFee(client, chainId, now = Math.floor(Date.now() / 1000)) {
+// `blockNumber`, when given, reads the feed as it stood at that block: the fee an anchor in that block owed.
+export async function quoteFee(client, chainId, now = Math.floor(Date.now() / 1000), blockNumber) {
   const c = CHAINS[chainId];
   if (!c) throw new Error("unsupported chain " + chainId);
   const [decimals, round] = await Promise.all([
-    client.readContract({ address: c.ethUsdFeed, abi: FEED_ABI, functionName: "decimals" }),
-    client.readContract({ address: c.ethUsdFeed, abi: FEED_ABI, functionName: "latestRoundData" }),
+    client.readContract({ address: c.ethUsdFeed, abi: FEED_ABI, functionName: "decimals", blockNumber }),
+    client.readContract({ address: c.ethUsdFeed, abi: FEED_ABI, functionName: "latestRoundData", blockNumber }),
   ]);
   const answer = round[1], updatedAt = round[3];
   const wei = feeWeiFrom({ answer, decimals, updatedAt, now, maxAgeS: c.maxFeedAgeS });
@@ -309,11 +316,21 @@ export function clientFor(chainId, rpc) {
 // Checks a seal. `client` is a viem public client on the seal's chain; without one,
 // only plain-wallet (EOA) signatures can be checked, and the anchor is not looked up.
 // `fileHash`, when given, is the SHA-256 of a document to compare against docHash.
+//
+// An anchored seal is judged at its anchor. The transaction must have gone to the Seal fee wallet, carry this
+// batch's root, and pay the fee its block owed ($0.02 at the ETH/USD price in force at that block, within
+// FEE_TOLERANCE_BPS); and every signature is checked against the chain's state AT THAT BLOCK, not today's. A smart
+// wallet's owners can change after the fact, or before it: the anchor fixes the moment the signatures have to hold.
+// (KupiaSec, 2026-10-15: the verifier read neither the recipient nor the value, so the fee was optional, and it
+// checked smart-wallet signatures against today's state.) Both need an RPC that holds state at the anchor's block.
+// The public Base and Base Sepolia endpoints do (MEASURED 2026-10-19: eth_call served 20,000,000 blocks behind the
+// head on both). Without an anchor there is no such moment, and signatures are checked at the latest block.
 export async function verifySeal(seal, { client, fileHash } = {}) {
   const r = { ok: false, checks: [] };
   const add = (name, ok, detail) => { r.checks.push({ name, ok, detail }); return ok; };
   try { validateSeal(seal); } catch (e) { add("format", false, e.message); return r; }
-  add("format", true, "seal format " + SEAL_FORMAT + ", " + CHAINS[seal.chainId].name);
+  const chain = CHAINS[seal.chainId];
+  add("format", true, "seal format " + SEAL_FORMAT + ", " + chain.name);
 
   if (fileHash !== undefined) {
     const same = String(fileHash).toLowerCase() === seal.docHash.toLowerCase();
@@ -321,23 +338,8 @@ export async function verifySeal(seal, { client, fileHash } = {}) {
   }
   if (!seal.signatures.length) add("signatures", false, "no signatures");
 
-  const td = typedDataFor(seal);
-  for (const g of seal.signatures) {
-    let ok = false, how = "";
-    try {
-      if (client) {
-        // viem's universal check: ERC-6492 (wallet not deployed yet), then ERC-1271
-        // (smart wallet), then plain ecrecover.
-        ok = await client.verifyTypedData({ address: g.signer, signature: g.signature, ...td });
-        how = "checked on-chain (EOA, ERC-1271 or ERC-6492)";
-      } else {
-        ok = (await recoverTypedDataAddress({ ...td, signature: g.signature })).toLowerCase() === g.signer.toLowerCase();
-        how = "checked offline (plain wallets only)";
-      }
-    } catch (e) { how = e.shortMessage || e.message; }
-    add("signature " + getAddress(g.signer), ok, ok ? how : "does not verify: " + how);
-  }
-
+  // The anchor first: once it holds, the signatures are checked at its block.
+  let anchorBlock;
   if (seal.anchor) {
     const a = seal.anchor;
     const leaf = sealLeaf(seal);
@@ -347,15 +349,48 @@ export async function verifySeal(seal, { client, fileHash } = {}) {
       try {
         const [tx, rc] = await Promise.all([client.getTransaction({ hash: a.txHash }), client.getTransactionReceipt({ hash: a.txHash })]);
         const onChainRoot = decodeAnchor(tx.input);
+        const toFeeWallet = !!chain.feeAddress && !!tx.to && tx.to.toLowerCase() === chain.feeAddress.toLowerCase();
         if (rc.status !== "success") add("anchor transaction", false, "transaction reverted");
         else if (!onChainRoot || onChainRoot !== a.root.toLowerCase()) add("anchor transaction", false, "the transaction does not carry this root");
+        else if (!toFeeWallet) add("anchor transaction", false, "the transaction did not go to the Seal fee wallet" + (chain.feeAddress ? " " + getAddress(chain.feeAddress) : ""));
         else {
           const block = await client.getBlock({ blockNumber: rc.blockNumber });
           r.anchoredAt = { block: Number(rc.blockNumber), time: Number(block.timestamp) };
-          add("anchor transaction", true, "existed by block " + rc.blockNumber + " (" + new Date(Number(block.timestamp) * 1000).toISOString() + ")");
+          add("anchor transaction", true, "existed by block " + rc.blockNumber + " (" + new Date(Number(block.timestamp) * 1000).toISOString() + "), sent to the Seal fee wallet");
+          anchorBlock = rc.blockNumber;
+          // The fee that block owed: $0.02 at the ETH/USD round in force when it closed, rounded up as the page rounds.
+          try {
+            const owed = await quoteFee(client, seal.chainId, Number(block.timestamp), rc.blockNumber);
+            const paid = tx.value * 10_000n >= owed.wei * (10_000n - FEE_TOLERANCE_BPS);
+            const price = (Number(owed.answer) / 10 ** owed.decimals).toFixed(2);
+            add("anchor fee", paid, (paid ? "paid " : "UNDER-PAID: ") + formatEther(tx.value) + " ETH against " + formatEther(owed.wei) + " ETH owed ($0.02 at " + price + " ETH/USD, the price in force at block " + rc.blockNumber + ")");
+          } catch (e) { add("anchor fee", false, "could not price the fee at block " + rc.blockNumber + ": " + (e.shortMessage || e.message)); }
         }
       } catch (e) { add("anchor transaction", false, "could not read it: " + (e.shortMessage || e.message)); }
     }
+  }
+
+  const td = typedDataFor(seal);
+  const at = anchorBlock !== undefined ? { blockNumber: anchorBlock } : {};
+  for (const g of seal.signatures) {
+    let ok = false, how = "";
+    try {
+      if (client) {
+        // viem's universal check: ERC-6492 (wallet not deployed yet), then ERC-1271
+        // (smart wallet), then plain ecrecover. At the anchor's block when there is one.
+        ok = await client.verifyTypedData({ address: g.signer, signature: g.signature, ...td, ...at });
+        how = "checked on-chain at " + (anchorBlock !== undefined ? "the anchor's block " + anchorBlock : "the latest block") + " (EOA, ERC-1271 or ERC-6492)";
+        if (!ok && anchorBlock !== undefined) {
+          // An RPC that cannot look back that far fails the check too; say so instead of blaming the signature.
+          try { await client.getCode({ address: g.signer, ...at }); }
+          catch { how = "this RPC holds no state at block " + anchorBlock + ", so the signature cannot be checked at the anchor; use an RPC that does (the default endpoints do)"; }
+        }
+      } else {
+        ok = (await recoverTypedDataAddress({ ...td, signature: g.signature })).toLowerCase() === g.signer.toLowerCase();
+        how = "checked offline (plain wallets only)";
+      }
+    } catch (e) { how = e.shortMessage || e.message; }
+    add("signature " + getAddress(g.signer), ok, ok ? how : "does not verify: " + how);
   }
   r.ok = r.checks.every((c) => c.ok);
   return r;

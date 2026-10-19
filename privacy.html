@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>Privacy — Taproot</title>
+<meta name="description" content="What Taproot does and does not do with your data." />
+<link rel="manifest" href="/manifest.webmanifest" />
+<style>
+:root{--bg:#f4f1e6;--surface:#fffdf7;--line:#ddd6c1;--ink:#1e211b;--ink-dim:#5f6553;--oxide:#2b7b17}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:32px 16px calc(env(safe-area-inset-bottom) + 48px)}
+h1{font-size:28px;letter-spacing:-.02em;margin:0 0 6px}
+h2{font-size:18px;margin:28px 0 8px}
+.sub{color:var(--ink-dim);margin:0 0 24px}
+.draft{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--ink-dim);font-size:14px}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px}
+a{color:var(--oxide)}
+ul{padding-left:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>Privacy</h1>
+<p class="sub">Taproot — non-custodial USDC payments. Last changed 2026-10-19.</p>
+<p class="draft">Draft, written with the Play Store listing (see <code>docs/PLAY_STORE.md</code> in the repository). It describes what the code does today.</p>
+
+<h2>What Taproot is</h2>
+<p>Taproot is a static web page you open in a browser or a wallet. There is no account, no sign-up and no server of ours that stores anything about you. The page talks to the Base blockchain through your wallet and through public read endpoints.</p>
+
+<h2>What we collect</h2>
+<p>Nothing. The page has no analytics, no tracking pixels and no login. Settings you change (the contract address you paste, the transactions this console sent) are stored in your own browser's local storage, on your device, and can be cleared by clearing site data.</p>
+
+<h2>What leaves your device</h2>
+<ul>
+  <li><b>Transactions you sign</b> go from your wallet to the Base network. A blockchain is public: anyone can read them.</li>
+  <li><b>Reads</b> of balances, prices and contract state go to public Base RPC endpoints and the Chainlink ETH/USD price feed. Those endpoints see your IP address, as any website's server does.</li>
+  <li><b>Scripts and fonts</b> load from content delivery networks (cdnjs, jsDelivr, esm.sh, Google Fonts). They see the request, as for any website that uses them.</li>
+  <li><b>Hosting.</b> The page is served from Cloudflare, which keeps standard server logs.</li>
+</ul>
+
+<h2>Seal</h2>
+<p>Seal hashes your document in your browser. The document itself never leaves your device. The seal (the hash, a title, the time and the signatures) is yours to share; if you anchor it, a hash of the batch is written to Base, and anyone can see that a seal with that hash existed by that block.</p>
+
+<h2>Wallets</h2>
+<p>Your wallet is yours. Taproot never holds your keys or your funds. Connecting a wallet shows the page your address so it can read your balances and prepare transactions for you to sign.</p>
+
+<h2>Children</h2>
+<p>Taproot is for adults (18 and over).</p>
+
+<h2>Changes and contact</h2>
+<p>This page changes when the code changes; the repository history records every change. Questions: open an issue at <a href="https://github.com/jonb89201-svg/Taproot-App">github.com/jonb89201-svg/Taproot-App</a>.</p>
+</main>
+</body>
+</html>

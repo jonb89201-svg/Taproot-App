@@ -1,0 +1,28 @@
+{
+  "id": "/",
+  "name": "Taproot — non-custodial USDC payments",
+  "short_name": "Taproot",
+  "description": "Accept USDC on Base straight to your own wallet. No processor, no chargebacks, no deplatforming. Seal documents with your wallet, free.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "categories": ["finance", "business"],
+  "icons": [
+    { "src": "/assets_base/icon_192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets_base/icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets_base/icon_512_maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/assets_base/shot1_hero.png", "sizes": "1284x2778", "type": "image/png", "form_factor": "narrow", "label": "Taproot: non-custodial USDC payments" },
+    { "src": "/assets_base/shot2_payments.png", "sizes": "1284x2778", "type": "image/png", "form_factor": "narrow", "label": "The Payments panel" },
+    { "src": "/assets_base/shot3_feed.png", "sizes": "1284x2778", "type": "image/png", "form_factor": "narrow", "label": "The customer feed" },
+    { "src": "/assets_base/shot4_slider.png", "sizes": "1284x2778", "type": "image/png", "form_factor": "narrow", "label": "Settings" }
+  ],
+  "shortcuts": [
+    { "name": "Seal a document", "short_name": "Seal", "url": "/seal.html", "description": "Seal a document with your wallet; anchor it on Base for $0.02", "icons": [{ "src": "/assets_base/icon_192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}
