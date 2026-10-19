@@ -8,6 +8,7 @@ import fs from "fs";
 import http from "http";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { encodeAbiParameters, parseUnits } from "viem";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pwPath = process.env.PLAYWRIGHT_MODULE || "playwright";
@@ -70,6 +71,28 @@ try {
   ok(app.subtitle.length <= 30 && app.description.length <= 170 && app.tagline.length <= 30 && app.ogTitle.length <= 30 && app.ogDescription.length <= 100 && (app.tags || []).length <= 5 && (app.screenshotUrls || []).length <= 3, "the Farcaster manifest keeps to the field limits");
   const embed = JSON.parse(await page.$eval('meta[name="fc:miniapp"]', (m) => m.getAttribute("content")));
   ok(embed.version === "1" && embed.button.action.type === "launch_miniapp" && embed.button.action.url === app.homeUrl && exists(embed.imageUrl) && embed.button.action.splashImageUrl === app.splashImageUrl, "the fc:miniapp embed launches the same app with the same splash, and its image exists");
+
+  console.log("Console: PossessioPayments v3.0.2");
+  // The panel renders only once a contract is connected, so read the registry it renders from.
+  const pay = await page.evaluate(() => { const c = CONTRACTS.find((x) => x.key === "PAY"); return { cats: c.categories.map((k) => k.label), fns: c.functions.map((f) => f.name) }; });
+  ok(["The Auction", "Sweep Policy", "Payees", "Treasury & Withdrawals", "Emergency & Roles", "Automation", "Wiring"].every((l) => pay.cats.includes(l)) && ["kick", "take", "proposePayee", "setUsdcFloat", "redeemMorpho"].every((f) => pay.fns.includes(f)) && !pay.fns.some((f) => /^guardian|^sweep$|UCR$|DAI$|^daiCeiling$|^withdrawDAI$/.test(f)), "the Payments panel is v3.0.2: auction, policy, payees; no guardian, no sweep(), no DAI");
+  // The launch rail's initArgs, encoded by the page (ethers), against an independent encoding (viem) of the same
+  // DeployParams from the contract's own wiring file: the K3 test's canonical set, owner 0x…A11CE.
+  const wiring = JSON.parse(fs.readFileSync(path.join(root, "abi/PossessioPayments.wiring.json"), "utf8"));
+  const owner = "0x00000000000000000000000000000000000a11ce"; // lower-case: both encoders take it as is
+  const cfg = { float: "1000", batch: "100", usdcDaily: "1000", cbDaily: "1", payee: "" };
+  const fromPage = await page.evaluate(([o, c]) => LaunchRail.paymentsInitArgs(o, c), [owner, cfg]);
+  const W = wiring.wiring;
+  const expected = encodeAbiParameters([{ type: "tuple", components: wiring.deployParams }], [{
+    owner, usdc: W.USDC, cbeth: W.CBETH, morphoVault: W.MORPHO_VAULT, chainlink: W.CHAINLINK_CBETH, chainlinkUsdcUsd: W.CHAINLINK_USDC,
+    chainlinkEthUsd: W.CHAINLINK_ETH, sequencerUptime: W.CHAINLINK_SEQUENCER, lstRates: W.LST_RATES,
+    minSwapBatch: parseUnits("100", 6), usdcFloat: parseUnits("1000", 6), maxKickUsdc: 0n, usdcDailyLimit: parseUnits("1000", 6), cbEthDailyLimit: parseUnits("1", 18), payees: [owner],
+  }]);
+  ok(fromPage.toLowerCase() === expected.toLowerCase(), "the launch rail encodes DeployParams exactly as an independent encoder does (" + (fromPage.length - 2) / 2 + " bytes)");
+  const twoPayees = await page.evaluate(([o, c]) => LaunchRail.paymentsInitArgs(o, c), [owner, { ...cfg, payee: "0x0000000000000000000000000000000000000b0b" }]);
+  ok(twoPayees.length === fromPage.length + 64 && twoPayees.toLowerCase().endsWith("0000000000000000000000000000000000000000000000000000000000000b0b"), "a second payee is appended after the owner");
+  const refused = await page.evaluate(([o, c]) => { try { LaunchRail.paymentsInitArgs(o, c); return null; } catch (e) { return e.message; } }, [owner, { ...cfg, batch: "0" }]);
+  ok(/above zero/.test(refused || ""), "a zero smallest sweep is refused before any signature: " + refused);
 } finally {
   await browser.close();
   server.close();

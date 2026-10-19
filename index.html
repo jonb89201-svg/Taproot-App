@@ -774,330 +774,243 @@ const CONTRACTS = [
     ],
   },
 
-  // 3. PossessioPayments — Tier 1 inbound payment rails
+  // 3. PossessioPayments v3.0.2 — the auction sweep. No guardian role; payees are the stolen-key defence.
   {
     key:"PAY", label:"Payments", title:"Taproot Payments",
     chain:"Base", chainId:8453,
-    desc:"A payment rail you own — the bare-minimum infrastructure to take USDC directly on-chain, non-custodial. Zero protocol fees: Taproot takes nothing, and no processor can freeze, reverse, or deplatform you. It works alongside your existing payment processors, not as a replacement — accept USDC directly from any customer, anywhere, with no chargebacks and no middleman. Access is role-gated (owner / operator / guardian). Incoming USDC pools in your contract; optionally, on your command, idle balances can earn yield — My Savings (staking) or My Lending — still fee-free at the protocol layer.",
-    access:"AccessControl (OWNER_ROLE self-admin; OPERATOR granted by OWNER; GUARDIAN seeded once by OWNER, self-administered thereafter — GUARDIAN_ROLE is its own role admin once a guardian exists)",
+    desc:"A payment rail you own — take USDC directly on-chain, non-custodial, with no processor who can freeze, reverse or deplatform you. Incoming USDC sits in your float; what comes in above it is swept on your schedule: one share is deposited to a Morpho USDC vault to earn, the other is sold for cbETH in an oracle-floored Dutch auction (a take below 99% of the Chainlink price reverts). Money leaves only to payees you set in advance (a new payee waits 48 hours), within daily limits, or through a 7-day emergency path. PossessioPayments v3.0.2, the auction sweep. There is no guardian role.",
+    access:"AccessControl: OWNER_ROLE, self-administered. kick() and take() are open to anyone — a kick can only happen when the rules allow, and a take must deliver the cbETH the curve asks for. performUpkeep is the Chainlink forwarder's kick.",
     categories:[
-      { id:"policy", label:"Inflow Policy", blurb:"Set how incoming USDC flows — yield split, reserve target, batch size",
-        names:["setCbEthBps","setDaiCeiling","setMinSwapBatch","setSweepSlippageGuards","cbEthBps","daiCeiling","minSwapBatch","sweepSlippageMinDai","sweepSlippageMinWeth","sweepSlippageMinCbEth","morphoDepositedPrincipal"] },
-      { id:"operations", label:"Operations", blurb:"Run sweeps, check status, pause and resume the engine",
-        names:["sweep","pauseUCR","queueResumeUCR","resumeUCR","routingPaused","SWEEP_DELAY","getTreasuryGauge","getUSDCBalance","getDAIBalance","getCbETHBalance","getMorphoBalance","lastSweepTime","nextSweepAllowed","isDaiReserveFull","checkUpkeep"] },
-      { id:"reserve", label:"Reserve & Withdrawals", blurb:"Manage DAI working capital and daily withdrawal limits",
-        names:["withdrawDAI","decreaseDailyLimit","queueDailyLimitIncrease","executeDailyLimitIncrease","cancelDailyLimitIncrease","dailyRemaining","dailyLimit","dailyLimitRef","LIMIT_INCREASE_MAX_MULT","queuedLimitIncrease","sendUSDC","sendCbETH","redeemMorpho","decreaseAssetDailyLimit","queueAssetDailyLimitIncrease","executeAssetDailyLimitIncrease","cancelAssetDailyLimitIncrease","usdcDailyLimit","usdcDailyRemaining","cbEthDailyLimit","cbEthDailyRemaining","assetLimitRef","queuedAssetLimitIncrease","WINDOW_SIZE","LIMIT_DELAY"] },
-      { id:"security", label:"Security", blurb:"Guardian protection, role management, emergency controls",
-        names:["enableGuardian","disableGuardian","queueGuardianDisable","cancelGuardianDisable","guardianPause","guardianCancelDailyLimitIncrease","guardianCancelAssetLimitIncrease","setWithdrawalsFrozen","guardianCancelEmergency","withdrawalsFrozen","guardianEnabled","guardianCount","guardianDisableExecuteAfter","GUARDIAN_DISABLE_DELAY","armorLevelDays","grantRole","revokeRole","renounceRole","hasRole","getRoleAdmin","OWNER_ROLE","OPERATOR_ROLE","GUARDIAN_ROLE","DEFAULT_ADMIN_ROLE","queueEmergencyWithdraw","executeEmergencyWithdraw","cancelEmergencyWithdraw","isEmergencyQueued","emergencyReady","emergencyQueue","EMERGENCY_DELAY"] },
+      { id:"auction", label:"The Auction", blurb:"Kick a lot, take a lot, read the curve; pause and resume",
+        names:["kick","take","takeWithCallback","canKick","lotOpen","lot","sellableUsdc","currentMultiplier","currentRequired","nextKickAllowed","lastKickAt","auctionsPaused","pauseAuctions","queueResumeAuctions","resumeAuctions","FLOOR_BPS","TIMELOCK","SEQUENCER_GRACE"] },
+      { id:"policy", label:"Sweep Policy", blurb:"The float, the smallest sweep, the cap, the split, the cadence",
+        names:["setUsdcFloat","setMinSwapBatch","setMaxKickUsdc","setCbEthBps","setAuctionLength","setKickDelay","usdcFloat","minSwapBatch","maxKickUsdc","cbEthBps","auctionLength","kickDelay","MIN_AUCTION_LENGTH","MAX_AUCTION_LENGTH","MIN_KICK_DELAY","MAX_KICK_DELAY","morphoDepositedPrincipal"] },
+      { id:"payees", label:"Payees", blurb:"Who can be paid — the stolen-key defence",
+        names:["proposePayee","removePayee","isPayee","payeeActiveAt","PAYEE_DELAY"] },
+      { id:"treasury", label:"Treasury & Withdrawals", blurb:"Balances, sending to a payee, the daily limits",
+        names:["getTreasuryGauge","getUSDCBalance","getCbETHBalance","getMorphoBalance","sendUSDC","sendCbETH","redeemMorpho","usdcDailyRemaining","cbEthDailyRemaining","usdcDailyLimit","cbEthDailyLimit","usdcDailyWithdrawn","cbEthDailyWithdrawn","decreaseAssetDailyLimit","queueAssetDailyLimitIncrease","executeAssetDailyLimitIncrease","cancelAssetDailyLimitIncrease","queuedAssetLimitIncrease","assetLimitRef","LIMIT_DELAY","LIMIT_INCREASE_MAX_MULT","WINDOW_SIZE"] },
+      { id:"emergency", label:"Emergency & Roles", blurb:"The 7-day escape hatch above the daily caps; who holds OWNER_ROLE",
+        names:["queueEmergencyWithdraw","executeEmergencyWithdraw","cancelEmergencyWithdraw","emergencyQueue","isEmergencyQueued","emergencyReady","EMERGENCY_DELAY","grantRole","revokeRole","renounceRole","hasRole","getRoleAdmin","OWNER_ROLE","DEFAULT_ADMIN_ROLE"] },
       { id:"automation", label:"Automation", blurb:"Chainlink keeper config — forwarder, upkeep, pause",
-        names:["setForwarder","setUpkeepID","queueForwarderUpdate","executeForwarderUpdate","pauseUpkeep","unpauseUpkeep","automationForwarder","upkeepID","upkeepPaused","executedUpkeepCount","UPKEEP_HYSTERESIS_BPS"] },
+        names:["setForwarder","setUpkeepID","queueForwarderUpdate","executeForwarderUpdate","pauseUpkeep","unpauseUpkeep","checkUpkeep","automationForwarder","upkeepID","upkeepPaused","executedUpkeepCount","UPKEEP_HYSTERESIS_BPS"] },
+      { id:"wiring", label:"Wiring", blurb:"The eight addresses pinned on Base, and the oracle staleness windows",
+        names:["USDC","CBETH","MORPHO_VAULT","CHAINLINK","CHAINLINK_USDC_USD","CHAINLINK_ETH_USD","SEQUENCER_UPTIME","LST_RATES","ORACLE_STALE","ORACLE_STALE_CBETH","ORACLE_STALE_STABLE"] },
     ],
     functions:[
 
-      // Keeper (OWNER or OPERATOR)
-      { kind:"write", name:"sweep", gated:["OWNER_ROLE | OPERATOR_ROLE","notPaused"],
-        plain:{ label:"Split Execution", blurb:"Takes the payments that have come in and splits them where they belong \u2014 your reserve, your savings, and lending. Runs once a day." },
-        desc:"Execute periodic sweep. Refills DAI reserve to ceiling, then splits remaining USDC per cbEthBps between cbETH leg (USDC→WETH via Uniswap V3 0.05%, then WETH→cbETH via Aerodrome Slipstream tickSpacing=1) and Morpho USDC leg (direct ERC4626 deposit to Bitwise Morpho Blue vault). Subject to SWEEP_DELAY (24h) since lastSweepTime. Validates Chainlink cbETH/ETH 18-decimal exchange-rate oracle freshness (90,000s window for 24h-heartbeat feed). The USDC/ETH composite floor guard and the DAI/USD freshness check now use a 90,000s window as well (both feeds are 24h-heartbeat on Base; the legacy 3600s window rejected valid, current data ~96% of the day and is retained only for ETH/USD, a ~20-min heartbeat feed). Reverts BatchTooSmall if balance < minSwapBatch.",
-        rationale:"Vary call timing within window to avoid MEV pattern-matching. v2.3 multi-hop architecture: USDC→WETH leg has its own slippage guard distinct from the WETH→cbETH leg.",
-        inputs:[
-          {name:"minDaiOut",type:"uint256",hint:"slippage guard on USDC→DAI hop; 0 if no DAI refill needed"},
-          {name:"minWethOut",type:"uint256",hint:"slippage guard on USDC→WETH leg (Uniswap V3 0.05%)"},
-          {name:"minCbEthOut",type:"uint256",hint:"slippage guard on WETH→cbETH leg (Aerodrome Slipstream)"},
-        ], outputs:[] },
-      { kind:"write", name:"pauseUCR", gated:["OWNER_ROLE | OPERATOR_ROLE"], danger:true,
-        plain:{ label:"Pause Everything", blurb:"Stop the automatic splitting right away. You can turn it back on later." },
-        desc:"Pause sweep mechanism immediately. Callable by OWNER or OPERATOR. Reversible only via queueResumeUCR + 48h timelock (OWNER-only).",
+      // ── The auction ──
+      { kind:"write", name:"kick", gated:["permissionless","notPaused"],
+        plain:{ label:"Run the Sweep", desc:"Takes the USDC above your float: the Morpho share is deposited to earn right away, the auction share is put up for sale for cbETH. Anyone can press it, but only when the rules allow — no open lot, the waiting time has passed, at least the smallest sweep is there, the price feeds are fresh and the Base sequencer is up." },
+        desc:"Open a lot. Closes an expired lot first; reverts LotOpen while one is live, KickTooEarly before lastKickAt + kickDelay, BatchTooSmall if the USDC above the float is under minSwapBatch (also after the maxKickUsdc cap: C-1, never a dust kick), OracleStale / SequencerDown / SequencerGracePeriod when anything cannot be priced (fail closed). Splits the kick by cbEthBps: the Morpho share is deposited now, the rest becomes the lot, open for auctionLength seconds.",
         inputs:[], outputs:[] },
-
-      // OWNER — resume
-      { kind:"write", name:"queueResumeUCR", gated:["OWNER_ROLE"],
-        desc:"Step 1 of resume. Queues timelock id. Retrieve id from event log in tx receipt.",
+      { kind:"write", name:"take", gated:["permissionless","notPaused"],
+        plain:{ label:"Buy the Lot", desc:"For the buyer: deliver the cbETH the curve asks for right now and receive the lot's USDC. Approve this contract to spend at least currentRequired() cbETH first." },
+        desc:"Take the open lot: transfers currentRequired() cbETH from the caller (allowance needed), pays out the lot's USDC. The curve runs 1536x → 1.5x → 1.0x → FLOOR_BPS of the live oracle amount over the lot's length, so a take early pays more and a take at the end pays 99% of oracle — never less. Reverts NoLot, ShortDelivery, or when the sequencer is down or just restarted (G-1).",
         inputs:[], outputs:[] },
-      { kind:"write", name:"resumeUCR", gated:["OWNER_ROLE","tlPassed"],
-        desc:"Step 2 of resume. Requires id and 48h timelock elapsed.",
+      { kind:"write", name:"takeWithCallback", gated:["permissionless","notPaused"],
+        desc:"Take for contracts: the lot's USDC goes to the caller first, the caller sources the cbETH inside ITaker.possessioTake(usdcOut, cbEthRequired, data), and the balance check settles it. Same price as take(). Effects precede the call; the contract-wide reentrancy guard covers kick, take and the exits.",
+        inputs:[{name:"data",type:"bytes",hint:"passed through to your possessioTake callback"}], outputs:[] },
+      { kind:"write", name:"pauseAuctions", gated:["OWNER_ROLE"], danger:true,
+        plain:{ label:"Pause the Sweeps", desc:"Stop kicks and takes right away. An open lot simply expires. Turning them back on takes 48 hours." },
+        desc:"Circuit breaker: no kick, no take. Reversible only via queueResumeAuctions + TIMELOCK (48 h) + resumeAuctions. Exits are unaffected.",
+        inputs:[], outputs:[] },
+      { kind:"write", name:"queueResumeAuctions", gated:["OWNER_ROLE"],
+        desc:"Step 1 of resume: queues a 48 h timelock. The id is in the AuctionsResumeQueued event of the receipt.",
+        inputs:[], outputs:[{name:"id",type:"bytes32"}] },
+      { kind:"write", name:"resumeAuctions", gated:["OWNER_ROLE","tlPassed"],
+        desc:"Step 2 of resume. Requires the id and the 48 h timelock elapsed.",
         inputs:[{name:"id",type:"bytes32"}], outputs:[] },
 
-      // OWNER — guardian path
-      { kind:"write", name:"enableGuardian", gated:["OWNER_ROLE"],
-        desc:"Enable the guardian path. While enabled, GUARDIAN_ROLE may invoke guardianPause(), setWithdrawalsFrozen(), guardianCancelEmergency() and the two limit-increase vetoes.",
-        inputs:[], outputs:[] },
-      { kind:"write", name:"disableGuardian", gated:["OWNER_ROLE"],
-        desc:"Disable guardian path. If no guardian has ever been seated, this is instant. Once a guardian exists, disabling requires queueGuardianDisable() + a 7-day timelock (GUARDIAN_DISABLE_DELAY) — a stolen owner key can no longer disarm the guardian and drain in one transaction. Reverts GuardianDisableNotReady if the timelock hasn't been queued or hasn't elapsed.",
-        inputs:[], outputs:[] },
-      { kind:"write", name:"queueGuardianDisable", gated:["OWNER_ROLE"],
-        desc:"Queue disableGuardian's 7-day timelock. Re-queuing restarts the clock — it can never be shortened.",
-        inputs:[], outputs:[] },
-      { kind:"write", name:"cancelGuardianDisable", gated:["OWNER_ROLE | GUARDIAN_ROLE"],
-        desc:"Cancel a queued guardian-disable timelock. Owner may cancel their own change of mind; guardian may veto — a disarm request the guardian didn't expect is the signature of a compromised owner key. Reverts NothingQueued if nothing is pending.",
-        inputs:[], outputs:[] },
+      // ── Sweep policy (none of these can move funds or lower the floor) ──
+      { kind:"write", name:"setUsdcFloat", gated:["OWNER_ROLE"],
+        plain:{ label:"Set the Float", desc:"How much USDC stays liquid and is never swept. Only what comes in above it is auctioned or deposited.", inputLabel:"USDC to keep liquid", inputHint:"6 decimals: 1000000000 = 1,000 USDC" },
+        desc:"USDC kept liquid for operations; sellableUsdc() is the balance above it. Any value, including 0.",
+        inputs:[{name:"amount",type:"uint256",hint:"USDC, 6 decimals"}], outputs:[] },
+      { kind:"write", name:"setMinSwapBatch", gated:["OWNER_ROLE"],
+        plain:{ label:"Smallest Sweep", desc:"A sweep waits until at least this much USDC sits above the float.", inputLabel:"Smallest sweep (USDC)", inputHint:"6 decimals: 100000000 = 100 USDC" },
+        desc:"Minimum USDC above the float before a kick. Non-zero; never above a non-zero maxKickUsdc (C-1: the two settings must leave a kick possible).",
+        inputs:[{name:"amount",type:"uint256",hint:"USDC, 6 decimals"}], outputs:[] },
+      { kind:"write", name:"setMaxKickUsdc", gated:["OWNER_ROLE"],
+        plain:{ label:"Cap per Sweep", desc:"The most one sweep may move, both shares together. 0 means no cap.", inputLabel:"Cap per sweep (USDC)", inputHint:"6 decimals; 0 = no cap" },
+        desc:"Cap per kick, both legs together; 0 = no cap. A non-zero cap is never below minSwapBatch (C-1).",
+        inputs:[{name:"amount",type:"uint256",hint:"USDC, 6 decimals; 0 = no cap"}], outputs:[] },
+      { kind:"write", name:"setCbEthBps", gated:["OWNER_ROLE"],
+        plain:{ label:"Set the Split", desc:"How much of each sweep goes to the cbETH auction; the rest is deposited to Morpho to earn. Between 10% and 90%.", inputLabel:"Auction share, in basis points", inputHint:"5000 = 50%; allowed 1000–9000" },
+        desc:"cbEthBps of a kick becomes the lot, the remainder the Morpho deposit. Bounded to [1000, 9000] so neither leg can be zeroed without a redeploy.",
+        inputs:[{name:"newBps",type:"uint16",hint:"1000–9000"}], outputs:[] },
+      { kind:"write", name:"setAuctionLength", gated:["OWNER_ROLE"],
+        plain:{ label:"Lot Duration", desc:"How long each lot stays open for buyers, from 10 minutes to 2 hours. The price falls along the curve over this time.", inputLabel:"Seconds a lot stays open", inputHint:"600–7200" },
+        desc:"Seconds a lot stays open, within [MIN_AUCTION_LENGTH, MAX_AUCTION_LENGTH] = [10 min, 2 h]. Deployed at 30 min.",
+        inputs:[{name:"seconds_",type:"uint64",hint:"600–7200"}], outputs:[] },
+      { kind:"write", name:"setKickDelay", gated:["OWNER_ROLE"],
+        plain:{ label:"Time Between Sweeps", desc:"The least time between two sweeps, from 1 hour to 7 days.", inputLabel:"Seconds between sweeps", inputHint:"3600–604800" },
+        desc:"Minimum time between kicks, within [MIN_KICK_DELAY, MAX_KICK_DELAY] = [1 h, 7 d]. Deployed at 24 h.",
+        inputs:[{name:"seconds_",type:"uint64",hint:"3600–604800"}], outputs:[] },
 
-      // GUARDIAN
-      { kind:"write", name:"guardianPause", gated:["GUARDIAN_ROLE"], danger:true,
-        desc:"Guardian-only emergency pause. Requires enableGuardian() to have been called first. Guardian can ONLY pause; cannot withdraw, unpause, or sweep.",
-        inputs:[], outputs:[] },
-      { kind:"write", name:"guardianCancelDailyLimitIncrease", gated:["GUARDIAN_ROLE"],
-        desc:"Guardian veto on a queued DAI daily-limit increase (see queueDailyLimitIncrease). Requires guardianEnabled. Reverts NoIncreaseQueued if nothing is pending.",
-        inputs:[], outputs:[] },
-      { kind:"write", name:"guardianCancelAssetLimitIncrease", gated:["GUARDIAN_ROLE"],
-        desc:"Guardian veto on a queued USDC or cbETH daily exit-limit increase (P-H1). Requires guardianEnabled. Reverts NoIncreaseQueued if nothing is pending for that asset.",
-        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[] },
-      { kind:"write", name:"setWithdrawalsFrozen", gated:["GUARDIAN_ROLE"], danger:true,
-        plain:{ label:"Freeze Withdrawals", blurb:"Your security wallet can lock every way money can be taken out of the contract. Sweeps keep running. Only the security wallet can unlock it." },
-        desc:"M-1: freeze (true) or unfreeze (false) the exit paths: withdrawDAI, sendUSDC, sendCbETH, redeemMorpho and executeEmergencyWithdraw. Independent of routingPaused, so sweeps are unaffected. The owner cannot clear it, which is the defence against a stolen owner key. Requires guardianEnabled.",
-        inputs:[{name:"frozen",type:"bool",hint:"true to freeze, false to unfreeze"}], outputs:[] },
-      { kind:"write", name:"guardianCancelEmergency", gated:["GUARDIAN_ROLE"],
-        desc:"M-1: guardian cancels a queued emergency withdrawal for a token, so a stolen owner key cannot push a 7-day drain past the guardian. Requires guardianEnabled. Reverts NothingQueued if nothing is queued for that token.",
-        inputs:[{name:"token",type:"address"}], outputs:[] },
+      // ── Payees: the stolen-key defence ──
+      { kind:"write", name:"proposePayee", gated:["OWNER_ROLE"],
+        plain:{ label:"Add a Payee", desc:"Name an address that may receive your money. It becomes active after 48 hours — long enough to notice and remove a payee you did not add.", inputLabel:"Address to allow", inputHint:"0x…" },
+        desc:"Proposes a payee; active after PAYEE_DELAY (48 h). Emits PayeeProposed(who, activeAt) — the console shows it, so a proposal the merchant did not make is visible in time to remove it and move funds to their own payees. Reverts AlreadyPayee for an active or pending one.",
+        inputs:[{name:"who",type:"address"}], outputs:[] },
+      { kind:"write", name:"removePayee", gated:["OWNER_ROLE"],
+        plain:{ label:"Remove a Payee", desc:"Take an address off the list, or cancel a pending one. Immediate.", inputLabel:"Address to remove", inputHint:"0x…" },
+        desc:"Removes an active payee or cancels a pending proposal. Instant. Reverts NotAPayee.",
+        inputs:[{name:"who",type:"address"}], outputs:[] },
 
-      // OWNER — DAI reserve management
-      { kind:"write", name:"withdrawDAI", gated:["OWNER_ROLE"],
-        plain:{ label:"Take Money Out", blurb:"Move money from your reserve to your own wallet." },
-        desc:"Withdraw DAI from contract to a destination address. Subject to the DAI daily limit (leaky bucket, see dailyRemaining). Reverts WithdrawalsFrozen while the guardian freeze is on.",
-        inputs:[{name:"amount",type:"uint256"},{name:"to",type:"address"}], outputs:[] },
-      { kind:"write", name:"setDaiCeiling", gated:["OWNER_ROLE"],
-        plain:{ label:"Set My Spending Reserve", blurb:"Set how much spending money to keep on hand before the rest is saved." },
-        plain:{ label:"Set your cash cushion",
-          desc:"Decide how much money to keep on hand as a steady dollar reserve before the rest gets put to work earning. Think of it as your working-capital buffer — money you want ready, not invested.",
-          inputHint:"Dollar amount to hold in reserve" },
-        desc:"Set ceiling on DAI balance held before sweep routes remainder to cbETH.",
-        inputs:[{name:"newCeiling",type:"uint256"}], outputs:[] },
-      { kind:"write", name:"decreaseDailyLimit", gated:["OWNER_ROLE"],
-        desc:"Decrease daily withdraw limit. Immediate (no timelock). newLimit must be lower than current.",
-        inputs:[{name:"newLimit",type:"uint256"}], outputs:[] },
-      { kind:"write", name:"queueDailyLimitIncrease", gated:["OWNER_ROLE"],
-        desc:"Step 1 of limit increase. Queues new limit; 24h delay before executable. newLimit must be higher than current. Capped at LIMIT_INCREASE_MAX_MULT (2x) the reference limit — the highest limit ever set at construction or by a prior executed increase (dailyLimitRef) — so a stolen owner key cannot queue an unbounded jump. Reverts IncreaseTooLarge if newLimit exceeds the cap; guardianCancelDailyLimitIncrease can still veto a queued increase within the 2x bound.",
-        inputs:[{name:"newLimit",type:"uint256"}], outputs:[] },
-      { kind:"write", name:"executeDailyLimitIncrease", gated:["OWNER_ROLE"],
-        desc:"Step 2 of limit increase. Requires queued increase + 24h timelock elapsed.",
-        inputs:[], outputs:[] },
-      { kind:"write", name:"cancelDailyLimitIncrease", gated:["OWNER_ROLE"],
-        desc:"Cancel queued daily limit increase.",
-        inputs:[], outputs:[] },
+      // ── Exits ──
+      { kind:"write", name:"sendUSDC", gated:["OWNER_ROLE","nonReentrant"],
+        plain:{ label:"Send USDC", desc:"Send idle USDC to one of your payees, within today's limit. An open lot's USDC is reserved for its buyer and cannot be sent." },
+        desc:"Transfers USDC to an active payee within the rolling usdcDailyLimit (a leaky bucket over WINDOW_SIZE, shared with redeemMorpho's output). G-2: reverts LotReserved if the balance after sending would drop below an open lot. Larger exits go through the 7-day emergency path.",
+        inputs:[{name:"amount",type:"uint256",hint:"USDC, 6 decimals"},{name:"to",type:"address",hint:"an active payee"}], outputs:[] },
+      { kind:"write", name:"sendCbETH", gated:["OWNER_ROLE","nonReentrant"],
+        plain:{ label:"Send cbETH", desc:"Send cbETH to one of your payees, within today's limit." },
+        desc:"Transfers cbETH to an active payee within the rolling cbEthDailyLimit.",
+        inputs:[{name:"amount",type:"uint256",hint:"cbETH, 18 decimals"},{name:"to",type:"address",hint:"an active payee"}], outputs:[] },
+      { kind:"write", name:"redeemMorpho", gated:["OWNER_ROLE","nonReentrant"],
+        plain:{ label:"Cash Out Lending", desc:"Withdraw from the Morpho vault; the USDC goes straight to one of your payees. Counts against today's USDC limit." },
+        desc:"Redeems Morpho vault shares; the vault sends the USDC to the payee. The output counts against usdcDailyLimit, checked on the vault's actual output. G-3: morphoDepositedPrincipal falls pro rata with the shares that leave.",
+        inputs:[{name:"shares",type:"uint256",hint:"vault shares (see getMorphoBalance)"},{name:"to",type:"address",hint:"an active payee"}], outputs:[{name:"usdcOut",type:"uint256"}] },
 
-      // OWNER — operational exits (C-2: each is daily-capped; M-1: each stops under the guardian freeze)
-      { kind:"write", name:"sendUSDC", gated:["OWNER_ROLE"],
-        desc:"Send USDC out of the contract. Counts against usdcDailyLimit (shared with redeemMorpho). Reverts DailyLimitExceeded over the cap and WithdrawalsFrozen under the freeze. Larger exits go through the 7-day emergency queue.",
-        inputs:[{name:"amount",type:"uint256",hint:"USDC base units (6 decimals)"},{name:"to",type:"address"}], outputs:[] },
-      { kind:"write", name:"sendCbETH", gated:["OWNER_ROLE"],
-        desc:"Send cbETH out of the contract (unwind it on a DEX yourself). Counts against cbEthDailyLimit. Reverts DailyLimitExceeded over the cap and WithdrawalsFrozen under the freeze.",
-        inputs:[{name:"amount",type:"uint256",hint:"cbETH base units (18 decimals)"},{name:"to",type:"address"}], outputs:[] },
-      { kind:"write", name:"redeemMorpho", gated:["OWNER_ROLE"],
-        desc:"Redeem Morpho vault shares; the vault sends the USDC straight to `to`. The USDC out counts against usdcDailyLimit (same cap as sendUSDC), checked on the vault's actual output. Reverts WithdrawalsFrozen under the freeze.",
-        inputs:[{name:"shares",type:"uint256"},{name:"to",type:"address"}], outputs:[{name:"usdcOut",type:"uint256"}] },
-
-      // OWNER — per-asset exit limits (C-2; increases capped by P-H1)
+      // ── Daily limits (C-2, per asset; P-H1 cap on raises; P-M4 leaky bucket) ──
       { kind:"write", name:"decreaseAssetDailyLimit", gated:["OWNER_ROLE"],
-        desc:"Lower the USDC or cbETH daily exit limit. Immediate. newLimit must be lower than current (InvalidLimit otherwise).",
-        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"},{name:"newLimit",type:"uint256"}], outputs:[] },
+        plain:{ label:"Lower a Daily Limit", desc:"Lower how much USDC or cbETH may leave per day. Takes effect at once." },
+        desc:"Lowers usdcDailyLimit (asset 0) or cbEthDailyLimit (asset 1). Immediate. Reverts InvalidLimit unless strictly lower.",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"},{name:"newLimit",type:"uint256",hint:"6 decimals for USDC, 18 for cbETH"}], outputs:[] },
       { kind:"write", name:"queueAssetDailyLimitIncrease", gated:["OWNER_ROLE"],
-        desc:"Step 1 of a USDC or cbETH exit-limit increase. 24h (LIMIT_DELAY) before executable. Must be higher than current, and at most LIMIT_INCREASE_MAX_MULT (2x) assetLimitRef(asset) — IncreaseTooLarge otherwise. The guardian can veto it.",
-        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"},{name:"newLimit",type:"uint256"}], outputs:[] },
+        plain:{ label:"Raise a Daily Limit — Step 1", desc:"Ask for a higher daily limit. It takes effect after 24 hours, and may be at most double the limit you started from." },
+        desc:"Queues an increase; LIMIT_DELAY (24 h) before it can execute; at most LIMIT_INCREASE_MAX_MULT (2x) the reference limit assetLimitRef (P-H1). A zero reference (deployed in lockdown) is uncapped for the first raise, still delayed.",
+        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"},{name:"newLimit",type:"uint256",hint:"must exceed the current limit"}], outputs:[] },
       { kind:"write", name:"executeAssetDailyLimitIncrease", gated:["OWNER_ROLE"],
-        desc:"Step 2 of a per-asset limit increase. Requires a queued increase and LIMIT_DELAY elapsed.",
+        plain:{ label:"Raise a Daily Limit — Step 2", desc:"After the 24 hours, make the higher limit live." },
+        desc:"Applies the queued increase after LIMIT_DELAY; raises assetLimitRef when the new limit exceeds it. Reverts NoIncreaseQueued / TimelockNotPassed.",
         inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[] },
       { kind:"write", name:"cancelAssetDailyLimitIncrease", gated:["OWNER_ROLE"],
-        desc:"Cancel a queued per-asset limit increase.",
+        desc:"Cancels a queued increase. Reverts NoIncreaseQueued.",
         inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[] },
 
-      // OWNER — emergency withdraw
-      { kind:"write", name:"queueEmergencyWithdraw", gated:["OWNER_ROLE"],
-        desc:"Step 1 of emergency withdraw. Queues token+amount. 7-day delay before executable.",
+      // ── Emergency (7-day timelock) ──
+      { kind:"write", name:"queueEmergencyWithdraw", gated:["OWNER_ROLE"], danger:true,
+        plain:{ label:"Emergency Exit — Step 1", desc:"Start a withdrawal above the daily limits: any token, any amount, after a 7-day wait. For migration or shutdown." },
+        desc:"Queues an emergency withdrawal of any held token (USDC, cbETH, Morpho shares…). EMERGENCY_DELAY (7 d). One queue per token; re-queuing replaces it.",
         inputs:[{name:"token",type:"address"},{name:"amount",type:"uint256"}], outputs:[] },
-      { kind:"write", name:"executeEmergencyWithdraw", gated:["OWNER_ROLE"],
-        desc:"Step 2 of emergency withdraw. Sends queued amount to `to` after 7-day elapsed. DAI withdrawals also enforce the DAI daily limit; other tokens rely on the 7-day queue, which the guardian can freeze (setWithdrawalsFrozen) and cancel (guardianCancelEmergency). Reverts WithdrawalsFrozen while the freeze is on.",
-        inputs:[{name:"token",type:"address"},{name:"to",type:"address"}], outputs:[] },
+      { kind:"write", name:"executeEmergencyWithdraw", gated:["OWNER_ROLE","nonReentrant"], danger:true,
+        plain:{ label:"Emergency Exit — Step 2", desc:"After 7 days, send the queued amount to one of your payees." },
+        desc:"Executes after EMERGENCY_DELAY, to an active payee, capped at the balance. G-2: a USDC emergency exit cancels an open lot instead of leaving one that can no longer be taken. G-3: Morpho shares leaving take their share of the principal with them.",
+        inputs:[{name:"token",type:"address"},{name:"to",type:"address",hint:"an active payee"}], outputs:[] },
       { kind:"write", name:"cancelEmergencyWithdraw", gated:["OWNER_ROLE"],
-        desc:"Cancel queued emergency withdraw for a token.",
+        desc:"Cancels a queued emergency withdrawal. Reverts NothingQueued.",
         inputs:[{name:"token",type:"address"}], outputs:[] },
-      { kind:"write", name:"setMinSwapBatch", gated:["OWNER_ROLE"],
-        plain:{ label:"Set Minimum Before Splitting", blurb:"Set how much money needs to pile up before it splits automatically." },
-        plain:{ label:"Set minimum batch size",
-          desc:"The smallest amount of incoming money that's worth processing at once. Set it higher to wait for bigger batches (fewer, larger moves); lower to process more often. Keeps tiny amounts from being moved before they're worth the fees.",
-          inputHint:"Smallest dollar amount worth processing" },
-        desc:"Set minimum swap batch threshold. Reverts ZeroAmount if 0.",
-        inputs:[{name:"amount",type:"uint256"}], outputs:[] },
-      { kind:"write", name:"setCbEthBps", gated:["OWNER_ROLE"],
-        slider:{ param:"newBps", minPct:10, maxPct:90, step:5, leftLabel:"My Lending", rightLabel:"My Savings", readName:"cbEthBps" },
-        plain:{ label:"Set My Split", blurb:"Slide right for more Savings, left for more Lending. The two always add up to 100%." },
-        plain:{ label:"Adjust your savings mix",
-          desc:"Choose how much of your incoming money grows as ETH versus stays steady as dollars. Move toward ETH for more growth potential; toward dollars for more stability. You can change this any time — it takes effect on your next scheduled sweep.",
-          inputHint:"Percent kept as ETH — anywhere from 10% to 90%" },
-        desc:"Set the cbETH vs Morpho USDC allocation ratio in basis points (10000 = 100%). Default 5000 = 50/50 split. Bounded [1000, 9000] — neither leg can be fully zeroed. Applied immediately; next sweep executes against the new ratio. This is the merchant's primary inflow-allocation dial: higher = more cbETH yield exposure; lower = more stable USDC yield via Morpho.",
-        rationale:"Range bounds force at least 10% diversification across yield mechanics and prevent single-leg routing via a compromised key. Merchants requiring 0% or 100% single-leg routing must redeploy with an amended contract.",
-        inputs:[{name:"newBps",type:"uint16",hint:"basis points 1000-9000; 5000 = 50/50 baseline (10%-90% range as percentage)"}], outputs:[] },
 
-      // AccessControl management
-      { kind:"write", name:"grantRole", gated:["OWNER_ROLE for OPERATOR; OWNER_ROLE once, then GUARDIAN_ROLE, for GUARDIAN"],
-        desc:"Grant a role to an account. OWNER_ROLE is its own admin (gates grantRole/revokeRole for OPERATOR). GUARDIAN_ROLE is different: the owner may only SEED the very first guardian (while guardianCount == 0); once a guardian exists, GUARDIAN_ROLE administers itself — only an existing guardian can grant or revoke it. A compromised owner key therefore cannot appoint itself guardian and lift a freeze. Use the role hash reads below as the bytes32 role argument — do NOT hardcode role hashes.",
-        inputs:[
-          {name:"role",type:"bytes32",hint:"call OWNER_ROLE() / OPERATOR_ROLE() / GUARDIAN_ROLE() reads below to fetch the canonical bytes32 hash. Do not type a hash by hand."},
-          {name:"account",type:"address"},
-        ], outputs:[] },
-      { kind:"write", name:"revokeRole", gated:["OWNER_ROLE for OPERATOR; GUARDIAN_ROLE for GUARDIAN"],
-        desc:"Revoke a role from an account. Same admin pattern as grantRole — the owner cannot revoke a seated guardian; only another guardian can.",
-        inputs:[
-          {name:"role",type:"bytes32"},
-          {name:"account",type:"address"},
-        ], outputs:[] },
-      { kind:"write", name:"renounceRole", gated:["self"],
-        desc:"Self-renounce a role. callerConfirmation MUST equal msg.sender (OZ v5 enforces). Use to step down from OPERATOR or GUARDIAN.",
-        inputs:[
-          {name:"role",type:"bytes32",hint:"the role you want to renounce; call the role hash reads below"},
-          {name:"callerConfirmation",type:"address",hint:"must equal your connected wallet address"},
-        ], outputs:[] },
+      // ── Roles (AccessControl) ──
+      { kind:"write", name:"grantRole", gated:["OWNER_ROLE"],
+        desc:"Grant OWNER_ROLE to another address (OWNER_ROLE is its own admin). The only role in v3.",
+        inputs:[{name:"role",type:"bytes32",hint:"OWNER_ROLE"},{name:"account",type:"address"}], outputs:[] },
+      { kind:"write", name:"revokeRole", gated:["OWNER_ROLE"],
+        desc:"Revoke OWNER_ROLE from an address. Do not revoke the last owner.",
+        inputs:[{name:"role",type:"bytes32"},{name:"account",type:"address"}], outputs:[] },
+      { kind:"write", name:"renounceRole", gated:["self"], danger:true,
+        desc:"Give up your own role. callerConfirmation must be your own address.",
+        inputs:[{name:"role",type:"bytes32"},{name:"callerConfirmation",type:"address"}], outputs:[] },
 
-      // Reads — role hashes (canonical, read from contract — never hardcode)
-      { kind:"read", name:"OWNER_ROLE", gated:["read"],
-        desc:"Returns the canonical OWNER_ROLE bytes32 hash. Use this output as the `role` argument to grantRole / revokeRole / renounceRole. NEVER hardcode this value — fetch it from the contract.",
-        inputs:[], outputs:[{type:"bytes32"}] },
-      { kind:"read", name:"OPERATOR_ROLE", gated:["read"],
-        desc:"Returns the canonical OPERATOR_ROLE bytes32 hash.",
-        inputs:[], outputs:[{type:"bytes32"}] },
-      { kind:"read", name:"GUARDIAN_ROLE", gated:["read"],
-        desc:"Returns the canonical GUARDIAN_ROLE bytes32 hash.",
-        inputs:[], outputs:[{type:"bytes32"}] },
-      { kind:"read", name:"DEFAULT_ADMIN_ROLE", gated:["read"],
-        desc:"Returns DEFAULT_ADMIN_ROLE (0x00…00). Not used here for OWNER/OPERATOR/GUARDIAN gating — PossessioPayments overrides the admin of OWNER_ROLE to OWNER_ROLE itself.",
-        inputs:[], outputs:[{type:"bytes32"}] },
-      { kind:"read", name:"hasRole", gated:["read"], desc:"Check whether an account holds a role.",
-        inputs:[{name:"role",type:"bytes32"},{name:"account",type:"address"}], outputs:[{type:"bool"}] },
-      { kind:"read", name:"getRoleAdmin", gated:["read"], desc:"Returns the role hash that admins a given role. For PossessioPayments: getRoleAdmin(OWNER_ROLE) returns OWNER_ROLE itself.",
-        inputs:[{name:"role",type:"bytes32"}], outputs:[{type:"bytes32"}] },
-
-      // Reads — balances and policy state
-      { kind:"read", name:"getTreasuryGauge", gated:["read"],
-        plain:{ label:"My Total", blurb:"The total value of your savings." }, desc:"ETH-equivalent of cbETH treasury at current exchange rate.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"getUSDCBalance", gated:["read"],
-        plain:{ label:"Money Waiting", blurb:"Money that has come in and is waiting to be split." }, desc:"USDC held by contract (6 decimals).",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"getDAIBalance", gated:["read"], desc:"DAI held by contract (18 decimals).",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"getCbETHBalance", gated:["read"],
-        plain:{ label:"My Savings", blurb:"Your money that is earning staking rewards." }, desc:"cbETH held by contract (18 decimals).",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"getMorphoBalance", gated:["read"],
-        plain:{ label:"My Lending", blurb:"Your money earning interest in the lending vault." }, desc:"Morpho leg position: vault shares held and their current USDC redemption value. currentUSDCValue rises with vault yield even when shares are unchanged — that is the dual-acquisition design working, not a stale read. Defensive try/catch: if the vault reverts, currentUSDCValue returns 0 while shares still reflects holdings (shares>0 && value==0 signals vault state unclear).",
-        inputs:[], outputs:[{name:"shares",type:"uint256"},{name:"currentUSDCValue",type:"uint256"}] },
-      { kind:"read", name:"dailyRemaining", gated:["read"], desc:"DAI that can be withdrawn right now. Leaky bucket (P-M4): spent capacity drains back linearly over WINDOW_SIZE (24h), so there is no window boundary to straddle.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"queuedLimitIncrease", gated:["read"], desc:"The queued DAI daily-limit increase (newLimit, executeAfter). executeAfter 0 = nothing queued.",
-        inputs:[], outputs:[{name:"newLimit",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
-      { kind:"read", name:"usdcDailyLimit", gated:["read"], desc:"Daily USDC exit limit, shared by sendUSDC and redeemMorpho (6 decimals).",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"usdcDailyRemaining", gated:["read"], desc:"USDC that can leave right now via sendUSDC / redeemMorpho (leaky bucket).",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"cbEthDailyLimit", gated:["read"], desc:"Daily cbETH exit limit for sendCbETH (18 decimals).",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"cbEthDailyRemaining", gated:["read"], desc:"cbETH that can leave right now via sendCbETH (leaky bucket).",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"assetLimitRef", gated:["read"], desc:"Reference limit a per-asset increase is capped against (the highest limit ever set for that asset).",
-        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"queuedAssetLimitIncrease", gated:["read"], desc:"The queued per-asset increase (newLimit, executeAfter). executeAfter 0 = nothing queued.",
-        inputs:[{name:"asset",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[{name:"newLimit",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
-      { kind:"read", name:"withdrawalsFrozen", gated:["read"], desc:"True while the guardian freeze is on: every exit path reverts WithdrawalsFrozen; sweeps still run.",
-        inputs:[], outputs:[{type:"bool"}] },
-      { kind:"read", name:"emergencyQueue", gated:["read"], desc:"The queued emergency withdrawal for a token (amount, executeAfter).",
-        inputs:[{name:"token",type:"address"}], outputs:[{name:"amount",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
-      { kind:"read", name:"routingPaused", gated:["read"], desc:"True while sweeps are paused (pauseUCR / guardianPause).",
-        inputs:[], outputs:[{type:"bool"}] },
-      { kind:"read", name:"sweepSlippageMinWeth", gated:["read"], desc:"Automation's slippage floor for the USDC→WETH leg.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"SWEEP_DELAY", gated:["read"], desc:"Minimum time between sweeps (seconds).", inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"LIMIT_DELAY", gated:["read"], desc:"Timelock on a limit increase (seconds).", inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"EMERGENCY_DELAY", gated:["read"], desc:"Timelock on an emergency withdrawal (seconds).", inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"WINDOW_SIZE", gated:["read"], desc:"Leaky-bucket drain period for every daily limit (seconds).", inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"armorLevelDays", gated:["read"], desc:"Days of operating runway the DAI reserve covers at a given daily burn rate.",
-        inputs:[{name:"dailyBurnRate",type:"uint256",hint:"daily burn in DAI base units (18 decimals)"}], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"isDaiReserveFull", gated:["read"], desc:"True once DAI balance ≥ daiCeiling.",
-        inputs:[], outputs:[{type:"bool"}] },
-      { kind:"read", name:"nextSweepAllowed", gated:["read"],
-        plain:{ label:"Next Split Time", blurb:"When your money can be split again." }, desc:"Unix timestamp at which sweep() becomes callable again.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"isEmergencyQueued", gated:["read"], desc:"True if an emergency withdraw is currently queued for the given token.",
-        inputs:[{name:"token",type:"address"}], outputs:[{type:"bool"}] },
-      { kind:"read", name:"emergencyReady", gated:["read"], desc:"True if queued emergency withdraw for token has passed its 7d timelock.",
-        inputs:[{name:"token",type:"address"}], outputs:[{type:"bool"}] },
-      { kind:"read", name:"guardianEnabled", gated:["read"], desc:"Whether guardian pause path is currently enabled.",
-        inputs:[], outputs:[{type:"bool"}] },
-      { kind:"read", name:"guardianCount", gated:["read"], desc:"Number of addresses currently holding GUARDIAN_ROLE. 0 means the owner can still seed the first guardian via grantRole; once nonzero, only an existing guardian can grant or revoke the role.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"guardianDisableExecuteAfter", gated:["read"], desc:"Unix timestamp at which a queued disableGuardian() becomes executable. 0 means nothing is queued.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"GUARDIAN_DISABLE_DELAY", gated:["read"], desc:"Constant 7-day delay a queued guardian-disable must clear once any guardian is seated.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"daiCeiling", gated:["read"], desc:"Merchant-set DAI reserve target.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"dailyLimit", gated:["read"], desc:"Current daily DAI withdrawal limit.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"dailyLimitRef", gated:["read"], desc:"The reference limit a queued increase is capped against — the highest dailyLimit ever set at construction or by a prior executed increase. A queued increase may not exceed dailyLimitRef * LIMIT_INCREASE_MAX_MULT.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"LIMIT_INCREASE_MAX_MULT", gated:["read"], desc:"Constant multiplier (2) bounding how large a single queued daily-limit increase may be relative to dailyLimitRef.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"minSwapBatch", gated:["read"], desc:"Minimum USDC balance before sweep allowed.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"cbEthBps", gated:["read"], desc:"Current cbETH allocation in basis points (out of 10000). Divide by 100 for percentage: 5000 = 50%, 8000 = 80%. Bounded [1000, 9000] enforced by setCbEthBps. The Morpho USDC leg receives the complement (10000 - cbEthBps).",
-        inputs:[], outputs:[{type:"uint16"}] },
-      { kind:"read", name:"morphoDepositedPrincipal", gated:["read"], desc:"Cumulative USDC principal deposited to Bitwise Morpho Blue USDC vault. Tracks deposits, not current value (which fluctuates with vault yield). For current redemption value, call convertToAssets(shares) on the MORPHO_VAULT off-contract.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"lastSweepTime", gated:["read"], desc:"Timestamp of last successful sweep.",
-        inputs:[], outputs:[{type:"uint256"}] },
-
-      // ── Writes — Chainlink Automation (council-ratified 2026-05-12) ──
+      // ── Automation (optional; gains no authority — performUpkeep is kick) ──
       { kind:"write", name:"setForwarder", gated:["OWNER_ROLE"],
-        desc:"One-time registration of Chainlink Automation Forwarder. After this, mutable only via queueForwarderUpdate + 48h timelock.",
+        desc:"One-time registration of the Chainlink Automation forwarder. Later changes go through queueForwarderUpdate (48 h).",
         inputs:[{name:"forwarder",type:"address"}], outputs:[] },
       { kind:"write", name:"setUpkeepID", gated:["OWNER_ROLE"],
-        desc:"Record the Chainlink Automation Upkeep ID after registration.",
+        desc:"Record the Chainlink upkeep ID (informational).",
         inputs:[{name:"newUpkeepID",type:"uint256"}], outputs:[] },
-      { kind:"write", name:"setSweepSlippageGuards", gated:["OWNER_ROLE"],
-        desc:"Set the minDai, minWeth, and minCbEth values that Automation passes to sweep() in performData. Operator-tunable, instant (no timelock — tighter guards revert sweep; looser guards accept worse prices).",
-        inputs:[
-          {name:"minDai",type:"uint256",hint:"slippage guard on USDC→DAI hop"},
-          {name:"minWeth",type:"uint256",hint:"slippage guard on USDC→WETH leg (Uniswap V3 0.05%)"},
-          {name:"minCbEth",type:"uint256",hint:"slippage guard on WETH→cbETH leg (Aerodrome Slipstream)"},
-        ], outputs:[] },
       { kind:"write", name:"queueForwarderUpdate", gated:["OWNER_ROLE"],
-        desc:"IV.8 Step 1 — queue forwarder update via 48h timelock.",
-        inputs:[{name:"newForwarder",type:"address"}], outputs:[] },
+        desc:"Queue a forwarder change behind the 48 h TIMELOCK. The id is in the ForwarderUpdateQueued event.",
+        inputs:[{name:"newForwarder",type:"address"}], outputs:[{name:"id",type:"bytes32"}] },
       { kind:"write", name:"executeForwarderUpdate", gated:["OWNER_ROLE","tlPassed"],
-        desc:"IV.8 Step 2 — execute forwarder update after 48h elapsed.",
+        desc:"Apply the queued forwarder change after the timelock.",
         inputs:[{name:"id",type:"bytes32"}], outputs:[] },
-      { kind:"write", name:"pauseUpkeep", gated:["OWNER_ROLE"], danger:true,
-        desc:"IV.7 Position A — pause automation upkeep. Owner-only.",
+      { kind:"write", name:"pauseUpkeep", gated:["OWNER_ROLE"],
+        desc:"Stop Automation from kicking. Manual kicks still work.",
         inputs:[], outputs:[] },
       { kind:"write", name:"unpauseUpkeep", gated:["OWNER_ROLE"],
-        desc:"Resume automation upkeep.",
+        desc:"Let Automation kick again.",
         inputs:[], outputs:[] },
 
-      // ── Reads — Chainlink Automation ──
-      { kind:"read", name:"automationForwarder", gated:["read"],
-        desc:"Current Chainlink Automation Forwarder address.",
-        inputs:[], outputs:[{type:"address"}] },
-      { kind:"read", name:"upkeepID", gated:["read"],
-        desc:"Chainlink Automation Upkeep ID. 0 if not yet registered.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"upkeepPaused", gated:["read"],
-        desc:"Whether automation upkeep is currently paused.",
-        inputs:[], outputs:[{type:"bool"}] },
-      { kind:"read", name:"executedUpkeepCount", gated:["read"],
-        desc:"Monotonic counter of automated sweeps to date.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"sweepSlippageMinDai", gated:["read"],
-        desc:"Current minDai slippage guard for automated sweep.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"sweepSlippageMinCbEth", gated:["read"],
-        desc:"Current minCbEth slippage guard for automated sweep.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"UPKEEP_HYSTERESIS_BPS", gated:["read"],
-        desc:"IV.4 — hysteresis multiplier (basis 100). Constant 120.",
-        inputs:[], outputs:[{type:"uint256"}] },
-      { kind:"read", name:"checkUpkeep", gated:["read"],
-        desc:"Chainlink off-chain view — returns whether sweep should run.",
-        inputs:[{name:"checkData",type:"bytes",hint:"pass 0x"}], outputs:[
-          {name:"upkeepNeeded",type:"bool"},
-          {name:"performData",type:"bytes"},
-        ] },
+      // ── Reads: the auction ──
+      { kind:"read", name:"canKick", gated:["read"], plain:{ label:"Can Sweep Now?", desc:"True when a sweep would go through this moment." }, desc:"True when kick() would open a lot now: not paused, no open lot, delay passed, sellable ≥ minSwapBatch, feeds fresh, sequencer up. Non-reverting; what Automation's checkUpkeep uses.", inputs:[], outputs:[{type:"bool"}] },
+      { kind:"read", name:"lotOpen", gated:["read"], plain:{ label:"Lot for Sale?", desc:"True while a lot is open to buyers." }, desc:"lot.usdc != 0 and now < lot.endsAt. An open lot's USDC is reserved for the taker (G-2).", inputs:[], outputs:[{type:"bool"}] },
+      { kind:"read", name:"lot", gated:["read"], desc:"The current lot: USDC for the taker (6-dec), start and end timestamps. Zero when none.", inputs:[], outputs:[{name:"usdc",type:"uint128"},{name:"startedAt",type:"uint64"},{name:"endsAt",type:"uint64"}] },
+      { kind:"read", name:"sellableUsdc", gated:["read"], plain:{ label:"Ready to Sweep", desc:"USDC above the float: what the next sweep would take (before any cap)." }, desc:"USDC balance minus usdcFloat, or 0.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"currentMultiplier", gated:["read"], desc:"The curve's multiplier now, 1e18 = the oracle amount; 0 if no lot. Phase 1 (first 20% of the lot) runs 1536x → 1.5x, phase 2 1.5x → 1.0x, phase 3 1.0x → 0.99x, phase 4 flat at 0.99x.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"currentRequired", gated:["read"], plain:{ label:"Price Right Now", desc:"The cbETH a buyer must deliver this moment for the open lot." }, desc:"cbETH a take must deliver now: the live oracle amount × currentMultiplier, rounded up. Reverts NoLot or OracleStale (so does take).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"nextKickAllowed", gated:["read"], plain:{ label:"Next Sweep At", desc:"The earliest time the next sweep may run (unix seconds)." }, desc:"lastKickAt + kickDelay.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"lastKickAt", gated:["read"], desc:"Timestamp of the last kick.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"auctionsPaused", gated:["read"], plain:{ label:"Sweeps Paused?", desc:"True while the circuit breaker is on." }, desc:"Owner circuit breaker: no kick, no take.", inputs:[], outputs:[{type:"bool"}] },
+      { kind:"read", name:"FLOOR_BPS", gated:["read"], desc:"The auction floor: 9900 = a take never pays under 99% of the oracle amount.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"TIMELOCK", gated:["read"], desc:"48 h: resume-after-pause and forwarder changes.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"SEQUENCER_GRACE", gated:["read"], desc:"1 h after the Base sequencer restarts, nothing is priced (G-1).", inputs:[], outputs:[{type:"uint256"}] },
+
+      // ── Reads: policy ──
+      { kind:"read", name:"usdcFloat", gated:["read"], plain:{ label:"The Float", desc:"USDC kept liquid, never swept." }, desc:"USDC kept liquid; a kick sells only the balance above it. 6-dec.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"minSwapBatch", gated:["read"], plain:{ label:"Smallest Sweep", desc:"A sweep waits for at least this much above the float." }, desc:"Minimum USDC above the float before a kick. 6-dec.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"maxKickUsdc", gated:["read"], desc:"Cap per kick, both legs together; 0 = no cap. 6-dec.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"cbEthBps", gated:["read"], plain:{ label:"The Split", desc:"Share of each sweep that goes to the cbETH auction, in basis points (5000 = half)." }, desc:"Auction share of a kick; the rest goes to Morpho. [1000, 9000].", inputs:[], outputs:[{type:"uint16"}] },
+      { kind:"read", name:"auctionLength", gated:["read"], desc:"Seconds a lot stays open.", inputs:[], outputs:[{type:"uint64"}] },
+      { kind:"read", name:"kickDelay", gated:["read"], desc:"Seconds between kicks.", inputs:[], outputs:[{type:"uint64"}] },
+      { kind:"read", name:"MIN_AUCTION_LENGTH", gated:["read"], desc:"10 minutes.", inputs:[], outputs:[{type:"uint64"}] },
+      { kind:"read", name:"MAX_AUCTION_LENGTH", gated:["read"], desc:"2 hours.", inputs:[], outputs:[{type:"uint64"}] },
+      { kind:"read", name:"MIN_KICK_DELAY", gated:["read"], desc:"1 hour.", inputs:[], outputs:[{type:"uint64"}] },
+      { kind:"read", name:"MAX_KICK_DELAY", gated:["read"], desc:"7 days.", inputs:[], outputs:[{type:"uint64"}] },
+      { kind:"read", name:"morphoDepositedPrincipal", gated:["read"], plain:{ label:"Lending Principal", desc:"USDC still deposited in the Morpho vault (what went in, less what came out, pro rata)." }, desc:"USDC principal still deposited to the Morpho vault; falls pro rata with shares that leave (G-3). 6-dec.", inputs:[], outputs:[{type:"uint256"}] },
+
+      // ── Reads: payees ──
+      { kind:"read", name:"isPayee", gated:["read"], plain:{ label:"Is a Payee?", desc:"True when this address may receive money right now." }, desc:"payeeActiveAt[who] != 0 and now ≥ it.", inputs:[{name:"who",type:"address"}], outputs:[{type:"bool"}] },
+      { kind:"read", name:"payeeActiveAt", gated:["read"], desc:"When the payee becomes (or became) active; 0 = not a payee.", inputs:[{name:"",type:"address"}], outputs:[{type:"uint64"}] },
+      { kind:"read", name:"PAYEE_DELAY", gated:["read"], desc:"48 h from proposal to active.", inputs:[], outputs:[{type:"uint256"}] },
+
+      // ── Reads: treasury & limits ──
+      { kind:"read", name:"getTreasuryGauge", gated:["read"], plain:{ label:"Treasury in ETH", desc:"Everything earning, valued in ETH: the cbETH plus the Morpho deposit at today's prices." }, desc:"ETH-equivalent of the cbETH leg (via LST_RATES) plus the Morpho leg (convertToAssets, then the two USD feeds). Each leg downgrades to 0 on its own failure; never a stale sum.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"getUSDCBalance", gated:["read"], plain:{ label:"USDC Balance", desc:"USDC held, float included." }, desc:"USDC.balanceOf(this). 6-dec.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"getCbETHBalance", gated:["read"], plain:{ label:"cbETH Balance", desc:"cbETH bought by the auctions and not yet sent." }, desc:"CBETH.balanceOf(this). 18-dec.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"getMorphoBalance", gated:["read"], plain:{ label:"My Lending", desc:"Your money earning in the Morpho vault: shares held and what they are worth in USDC now." }, desc:"Morpho leg: shares held and their current USDC value (0 if the vault read reverts while shares > 0: vault state unclear).", inputs:[], outputs:[{name:"shares",type:"uint256"},{name:"currentUSDCValue",type:"uint256"}] },
+      { kind:"read", name:"usdcDailyRemaining", gated:["read"], plain:{ label:"USDC Left Today", desc:"How much USDC may still leave in the current window." }, desc:"usdcDailyLimit minus the drained spend (P-M4 leaky bucket over WINDOW_SIZE).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"cbEthDailyRemaining", gated:["read"], plain:{ label:"cbETH Left Today", desc:"How much cbETH may still leave in the current window." }, desc:"cbEthDailyLimit minus the drained spend.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"usdcDailyLimit", gated:["read"], desc:"24 h cap on USDC exits (sendUSDC + redeemMorpho). 6-dec. 0 = lockdown.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"cbEthDailyLimit", gated:["read"], desc:"24 h cap on cbETH exits (sendCbETH). 18-dec. 0 = lockdown.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"usdcDailyWithdrawn", gated:["read"], desc:"USDC spent in the current window (before draining).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"cbEthDailyWithdrawn", gated:["read"], desc:"cbETH spent in the current window (before draining).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"queuedAssetLimitIncrease", gated:["read"], desc:"The queued increase for an asset: new limit and when it can execute (0 = none).", inputs:[{name:"",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[{name:"newLimit",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
+      { kind:"read", name:"assetLimitRef", gated:["read"], desc:"The reference limit a raise is measured against (P-H1: at most 2x).", inputs:[{name:"",type:"uint8",hint:"0 = USDC, 1 = cbETH"}], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"LIMIT_DELAY", gated:["read"], desc:"24 h before a limit increase executes.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"LIMIT_INCREASE_MAX_MULT", gated:["read"], desc:"2: an increase is at most twice the reference limit.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"WINDOW_SIZE", gated:["read"], desc:"24 h: the window the exit limits drain over.", inputs:[], outputs:[{type:"uint256"}] },
+
+      // ── Reads: emergency & roles ──
+      { kind:"read", name:"emergencyQueue", gated:["read"], desc:"The queued emergency withdrawal for a token: amount and when it can execute (0 = none).", inputs:[{name:"",type:"address"}], outputs:[{name:"amount",type:"uint256"},{name:"executeAfter",type:"uint256"}] },
+      { kind:"read", name:"isEmergencyQueued", gated:["read"], desc:"True when an emergency withdrawal of this token is queued.", inputs:[{name:"token",type:"address"}], outputs:[{type:"bool"}] },
+      { kind:"read", name:"emergencyReady", gated:["read"], desc:"True when the queued emergency withdrawal of this token can execute now.", inputs:[{name:"token",type:"address"}], outputs:[{type:"bool"}] },
+      { kind:"read", name:"EMERGENCY_DELAY", gated:["read"], desc:"7 days.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"hasRole", gated:["read"], plain:{ label:"Is an Owner?", desc:"True when the address holds the role." }, desc:"AccessControl.hasRole.", inputs:[{name:"role",type:"bytes32",hint:"OWNER_ROLE"},{name:"account",type:"address"}], outputs:[{type:"bool"}] },
+      { kind:"read", name:"getRoleAdmin", gated:["read"], desc:"The admin role of a role. OWNER_ROLE administers itself.", inputs:[{name:"role",type:"bytes32"}], outputs:[{type:"bytes32"}] },
+      { kind:"read", name:"OWNER_ROLE", gated:["read"], desc:"keccak256('OWNER_ROLE').", inputs:[], outputs:[{type:"bytes32"}] },
+      { kind:"read", name:"DEFAULT_ADMIN_ROLE", gated:["read"], desc:"0x00. Granted to nobody in v3.", inputs:[], outputs:[{type:"bytes32"}] },
+
+      // ── Reads: automation ──
+      { kind:"read", name:"checkUpkeep", gated:["read"], desc:"Chainlink Automation's question: true when a kick is due AND the sellable USDC is at least 120% of minSwapBatch (hysteresis, IV.4).", inputs:[{name:"checkData",type:"bytes",hint:"ignored; 0x"}], outputs:[{name:"upkeepNeeded",type:"bool"},{name:"performData",type:"bytes"}] },
+      { kind:"read", name:"automationForwarder", gated:["read"], desc:"The Chainlink Automation forwarder allowed to call performUpkeep.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"upkeepID", gated:["read"], desc:"The recorded Chainlink upkeep ID.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"upkeepPaused", gated:["read"], desc:"True while Automation is told not to kick.", inputs:[], outputs:[{type:"bool"}] },
+      { kind:"read", name:"executedUpkeepCount", gated:["read"], desc:"Kicks performed by Automation so far.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"UPKEEP_HYSTERESIS_BPS", gated:["read"], desc:"120: Automation kicks at 120% of minSwapBatch.", inputs:[], outputs:[{type:"uint256"}] },
+
+      // ── Reads: wiring (pinned on Base at deploy, K-3) ──
+      { kind:"read", name:"USDC", gated:["read"], desc:"USDC on Base.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"CBETH", gated:["read"], desc:"cbETH on Base.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"MORPHO_VAULT", gated:["read"], desc:"The Morpho USDC vault (ERC-4626).", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"CHAINLINK", gated:["read"], desc:"cbETH/ETH exchange-rate feed, 18-dec.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"CHAINLINK_USDC_USD", gated:["read"], desc:"USDC/USD price feed, 8-dec.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"CHAINLINK_ETH_USD", gated:["read"], desc:"ETH/USD price feed, 8-dec.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"SEQUENCER_UPTIME", gated:["read"], desc:"Base L2 Sequencer Uptime Status Feed, 0-dec; answer 0 = up.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"LST_RATES", gated:["read"], desc:"LSTExchangeRate: cbETH → ETH for the gauge.", inputs:[], outputs:[{type:"address"}] },
+      { kind:"read", name:"ORACLE_STALE", gated:["read"], desc:"1 h: the ETH/USD feed must be fresher than this.", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"ORACLE_STALE_CBETH", gated:["read"], desc:"25 h: the cbETH/ETH feed (24 h heartbeat).", inputs:[], outputs:[{type:"uint256"}] },
+      { kind:"read", name:"ORACLE_STALE_STABLE", gated:["read"], desc:"25 h: the USDC/USD feed (24 h heartbeat).", inputs:[], outputs:[{type:"uint256"}] },
     ],
   },
 
@@ -2285,18 +2198,21 @@ function updateWalletUI() {
       if (code === "0x"){ pill.className="gate-pill danger"; pill.textContent="no contract"; detected=false; refreshGate(); return; }
       var abi = [
         "function minSwapBatch() view returns (uint256)",
-        "function daiCeiling() view returns (uint256)",
-        "function owner() view returns (address)"
+        "function usdcFloat() view returns (uint256)",
+        "function OWNER_ROLE() view returns (bytes32)",
+        "function hasRole(bytes32 role, address account) view returns (bool)"
       ];
       var c = new ethers.Contract(addr, abi, state.provider);
       var msb = await c.minSwapBatch();
-      var own = await c.owner();
+      var flt = await c.usdcFloat();
+      var own = state.walletAddr ? await c.hasRole(await c.OWNER_ROLE(), state.walletAddr) : null;
       pill.className="gate-pill ok"; pill.textContent="live read OK";
       g("gate-read-step").classList.remove("gate-hidden");
       g("gate-read-pill").className="gate-pill ok"; g("gate-read-pill").textContent="OK";
       g("gate-read-body").innerHTML =
         '<div class="gate-kv"><span class="k">minSwapBatch</span><span>'+msb.toString()+'</span></div>' +
-        '<div class="gate-kv"><span class="k">owner</span><span>'+short(own)+'</span></div>';
+        '<div class="gate-kv"><span class="k">usdcFloat</span><span>'+flt.toString()+'</span></div>' +
+        '<div class="gate-kv"><span class="k">you hold OWNER_ROLE</span><span>'+(own===null?"connect to check":(own?"yes":"no"))+'</span></div>';
       detected = true;
       // Persist the verified address into the console's address store for PAY.
       try { state.addresses["PAY"] = addr; } catch(_){}
@@ -2352,9 +2268,9 @@ const FEED_ABI = [{
 // PossessioPayments balance ABI fragments
 const PAY_ABI = [
   { type:"function", name:"getUSDCBalance", stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
-  { type:"function", name:"getDAIBalance",  stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
   { type:"function", name:"getCbETHBalance",stateMutability:"view", inputs:[], outputs:[{type:"uint256"}] },
   { type:"function", name:"getMorphoBalance",stateMutability:"view", inputs:[], outputs:[{name:"shares",type:"uint256"},{name:"currentUSDCValue",type:"uint256"}] },
+  { type:"function", name:"isPayee",      stateMutability:"view", inputs:[{name:"who",type:"address"}], outputs:[{type:"bool"}] },
   { type:"function", name:"sendUSDC",     stateMutability:"nonpayable", inputs:[{name:"amount",type:"uint256"},{name:"to",type:"address"}], outputs:[] },
   { type:"function", name:"sendCbETH",    stateMutability:"nonpayable", inputs:[{name:"amount",type:"uint256"},{name:"to",type:"address"}], outputs:[] },
   { type:"function", name:"redeemMorpho", stateMutability:"nonpayable", inputs:[{name:"shares",type:"uint256"},{name:"to",type:"address"}], outputs:[{name:"usdcOut",type:"uint256"}] },
@@ -2384,14 +2300,12 @@ async function fetchEthUsd(chainId) {
 async function fetchPaymentsBalances(paymentsAddr) {
   const provider = await getReadProvider(8453); // Base
   const iface = new ethers.Interface(PAY_ABI);
-  const [usdcRaw, daiRaw, cbethRaw] = await Promise.all([
+  const [usdcRaw, cbethRaw] = await Promise.all([
     provider.call({ to: paymentsAddr, data: iface.encodeFunctionData("getUSDCBalance", []) }),
-    provider.call({ to: paymentsAddr, data: iface.encodeFunctionData("getDAIBalance",  []) }),
     provider.call({ to: paymentsAddr, data: iface.encodeFunctionData("getCbETHBalance",[]) }),
   ]);
   return {
     usdc:  iface.decodeFunctionResult("getUSDCBalance",  usdcRaw)[0],
-    dai:   iface.decodeFunctionResult("getDAIBalance",   daiRaw)[0],
     cbeth: iface.decodeFunctionResult("getCbETHBalance", cbethRaw)[0],
   };
 }
@@ -2478,9 +2392,8 @@ async function refreshTreasury(opts) {
         // prefer Base price if Anchor wasn't read, else keep L1 price
         if (priceUsed === null) priceUsed = ethUsdBase;
         const usdc  = Number(ethers.formatUnits(bal.usdc,  6));
-        const dai   = Number(ethers.formatUnits(bal.dai,   18));
         const cbeth = Number(ethers.formatUnits(bal.cbeth, 18));
-        liquidUsd  += usdc + dai;
+        liquidUsd  += usdc;
         earningUsd += cbeth * ethUsdBase;
 
         // Populate the position rows (USDC, cbETH, Morpho) with USD values + bars
@@ -2600,8 +2513,14 @@ function wirePositionSends() {
       if (!to || !ethers.isAddress(to)) { setS("Enter a valid address to send to.", "err"); return; }
       if (raw === "0" || raw === "") { setS("Nothing to send in this position.", "info"); return; }
       try {
-        setS("Confirm in your wallet…", "info");
         const iface = new ethers.Interface(PAY_ABI);
+        // v3: money leaves only to an active payee. Say so before the wallet asks for a signature that would revert.
+        try {
+          const prov = await getReadProvider(8453);
+          const isPayee = iface.decodeFunctionResult("isPayee", await prov.call({ to: payAddr, data: iface.encodeFunctionData("isPayee", [to]) }))[0];
+          if (!isPayee) { setS("That address is not an active payee of this contract. Add it under Payments → Payees (a new payee waits 48 hours).", "err"); return; }
+        } catch (_) { /* if the read fails, the contract's own check still stands */ }
+        setS("Confirm in your wallet…", "info");
         // sendUSDC(amount,to) / sendCbETH(amount,to) / redeemMorpho(shares,to)
         const data = iface.encodeFunctionData(fnName, [raw, to]);
         const tx = await state.signer.sendTransaction({ to: payAddr, data });
@@ -2742,11 +2661,11 @@ refreshTreasury();
   "use strict";
   var C={
     v3:{name:"POSSESSIO V3",short:"V3",net:"base",desc:"Your own token, fee engine, and council vault — the full protocol in one contract.",config:"token"},
-    pay:{name:"Payments",short:"PAY",net:"base",desc:"Inbound payment rails with a working reserve. Take payments, hold a stable buffer.",config:"payments"},
+    pay:{name:"Payments",short:"PAY",net:"base",desc:"Take USDC to a contract you own. A float stays liquid; the rest is swept into cbETH and Morpho on your schedule, and only your payees can be paid.",config:"payments"},
   };
   var NET={ base:{main:"Base",test:"Base Sepolia",cls:"base"}, eth:{main:"Ethereum",test:"Ethereum Sepolia",cls:"eth"} };
   var STEPS=["Choose","Own","Set up","Deploy"], TITLES=["What do you want to launch?","How do you want to own it?","Set it up","Deploy"];
-  var L={env:"test",step:0,contract:null,owner:"baseAccount",safe:"",cfg:{name:"",ticker:"",supply:"",liq:""},dep:"ready",addr:""};
+  var L={env:"test",step:0,contract:null,owner:"baseAccount",safe:"",cfg:{name:"",ticker:"",supply:"",liq:"",float:"",batch:"",usdcDaily:"",cbDaily:"",payee:""},dep:"ready",addr:""};
 
   function esc(x){return String(x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
   function isAddr(a){return /^0x[a-fA-F0-9]{40}$/.test(a);}
@@ -2762,7 +2681,7 @@ refreshTreasury();
     return '<svg class="lk" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'; }
   function sumF(i){ if(i===0){return esc(C[L.contract].name)+" \u00b7 "+nlabel(L.contract);}
     if(i===1)return L.owner==="safe"?("Safe \u00b7 "+shrt(L.safe)):"Base Account";
-    if(i===2){var c=C[L.contract]; if(c.config==="payments")return "Reserve $"+esc(L.cfg.supply||"\u2014"); return esc(L.cfg.name||"\u2014")+(L.cfg.ticker?(" \u00b7 "+esc(L.cfg.ticker)):"");}
+    if(i===2){var c=C[L.contract]; if(c.config==="payments")return "Float $"+esc(L.cfg.float||"\u2014")+" \u00b7 sweeps from $"+esc(L.cfg.batch||"\u2014"); return esc(L.cfg.name||"\u2014")+(L.cfg.ticker?(" \u00b7 "+esc(L.cfg.ticker)):"");}
     return ""; }
   function tcls(){return L.env==="test"?"t":"";}
 
@@ -2781,8 +2700,16 @@ refreshTreasury();
   }
   function cSetup(){
     var c=C[L.contract],t=tcls();
-    if(c.config==="payments")
-      return '<div class="lr-field"><label>Stable reserve ceiling (USD)</label><input inputmode="numeric" placeholder="e.g. 2280" value="'+esc(L.cfg.supply)+'" oninput="LaunchRail.setCfg(\'supply\',this.value)"><div class="lr-hint">Working capital the contract holds as a buffer.</div></div>'+lockedP([["Token / oracle / router","Set for you"],["Sweep slippage guard","Set for you"]],"lr-lp")+'<button class="lr-go '+t+'" id="lr-go" onclick="LaunchRail.next()" '+(L.cfg.supply.trim()?"":"disabled")+'>Continue</button>';
+    if(c.config==="payments"){
+      var pok=payOk();
+      return '<div class="lr-field"><label>USDC kept liquid (the float)</label><input inputmode="decimal" placeholder="e.g. 1000" value="'+esc(L.cfg.float)+'" oninput="LaunchRail.setCfg(\'float\',this.value)"><div class="lr-hint">Working money that stays as USDC. Only what comes in above it is swept.</div></div>'
+        +'<div class="lr-field"><label>Smallest sweep (USDC)</label><input inputmode="decimal" placeholder="e.g. 100" value="'+esc(L.cfg.batch)+'" oninput="LaunchRail.setCfg(\'batch\',this.value)"><div class="lr-hint">A sweep waits until at least this much sits above the float.</div></div>'
+        +'<div class="lr-field"><label>Most USDC out per day</label><input inputmode="decimal" placeholder="e.g. 1000" value="'+esc(L.cfg.usdcDaily)+'" oninput="LaunchRail.setCfg(\'usdcDaily\',this.value)"><div class="lr-hint">The daily cap on sending USDC and on cashing out of Morpho. Raising it later waits 24 hours; lowering is instant.</div></div>'
+        +'<div class="lr-field"><label>Most cbETH out per day</label><input inputmode="decimal" placeholder="e.g. 1" value="'+esc(L.cfg.cbDaily)+'" oninput="LaunchRail.setCfg(\'cbDaily\',this.value)"><div class="lr-hint">The daily cap on sending cbETH.</div></div>'
+        +'<div class="lr-field"><label>Another payee (optional)</label><input placeholder="0x\u2026 the owner is always the first payee" value="'+esc(L.cfg.payee)+'" oninput="LaunchRail.setCfg(\'payee\',this.value)" autocomplete="off" spellcheck="false"><div class="lr-hint">Money can only ever go to a payee. You are the first; any payee added later waits 48 hours.</div></div>'
+        +lockedP([["Wiring","USDC, cbETH, Morpho, four Chainlink feeds, LST rates \u2014 pinned on Base"],["Split","50% auction / 50% Morpho; adjustable 10\u201390% later"],["Auction","30-minute lots, 24 hours apart, floor 99% of the oracle price"],["Cap per sweep","none; set one later"]],"lr-lp")
+        +'<button class="lr-go '+t+'" id="lr-go" onclick="LaunchRail.next()" '+(pok?"":"disabled")+'>Continue</button>';
+    }
     var ok=L.cfg.name.trim()&&L.cfg.ticker.trim()&&L.cfg.supply.trim()&&L.cfg.liq.trim();
     return '<div class="lr-in2"><div class="lr-field"><label>Token name</label><input placeholder="e.g. Riverside Dollar" value="'+esc(L.cfg.name)+'" oninput="LaunchRail.setCfg(\'name\',this.value)" maxlength="32"></div><div class="lr-field" style="max-width:120px"><label>Ticker</label><input placeholder="RIV" value="'+esc(L.cfg.ticker)+'" oninput="LaunchRail.setCfg(\'ticker\',this.value.toUpperCase())" maxlength="6"></div></div><div class="lr-field"><label>Total supply</label><input inputmode="numeric" placeholder="1,000,000,000" value="'+esc(L.cfg.supply)+'" oninput="LaunchRail.setCfg(\'supply\',this.value)"><div class="lr-hint">All minted to you at launch.</div></div><div class="lr-field"><label>Starting liquidity (ETH)</label><input inputmode="decimal" placeholder="0.05" value="'+esc(L.cfg.liq)+'" oninput="LaunchRail.setCfg(\'liq\',this.value)"><div class="lr-hint">Seeds the pool so people can trade it.</div></div>'+lockedP([["Fee","2% L.A.T.E."],["Split","25% LP \u00b7 75% \u2192 cbETH"],["Hook flags","0x08C8 (mined for you)"]],"lr-lv")+'<button class="lr-go '+t+'" id="lr-go" onclick="LaunchRail.next()" '+(ok?"":"disabled")+'>Continue</button>';
   }
@@ -2796,6 +2723,28 @@ refreshTreasury();
     if(L.dep==="confirm")
       return '<p class="lr-bs" style="margin-top:0">Your address is ready. Sign once to deploy'+(isT?" on testnet":" and pay the fee")+' — in a single transaction.</p><div class="lr-wsheet" style="margin-top:13px"><div class="lr-wh"><span class="bd">B</span> Base App wallet \u00b7 '+lab+'</div><div class="lr-sum" style="border:none"><div class="lr-sr" style="padding:8px 0"><span class="k">Deploy</span><span class="v">'+esc(c.name)+'</span></div><div class="lr-sr" style="padding:8px 0"><span class="k">Fee</span><span class="v">'+(isT?"test ETH":"included")+'</span></div><div class="lr-sr" style="padding:8px 0;border:none"><span class="k">To</span><span class="v">'+esc(own)+'</span></div></div></div><div class="lr-note w" style="margin-top:12px"><span class="ni">!</span><span>You\'re signing in Base App — that signature is what makes this yours.</span></div><button class="lr-go '+t+'" onclick="LaunchRail.sign()">Sign in Base App</button>';
     return '<div class="lr-cs"><div class="lr-ck"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><p class="lr-st">Deployed. You own it.</p><p class="lr-sb">'+esc(c.name)+' is live on '+lab+', owned by your '+(L.owner==="safe"?"Safe":"Base Account")+'.</p><div class="lr-addr"><small>Your contract address \u00b7 '+lab+'</small>'+esc(L.addr||"")+'</div><button class="lr-go" onclick="LaunchRail.close()">Done — back to console</button></div>';
+  }
+  // PossessioPayments v3.0.2 takes abi.encode(DeployParams) as initArgs; the factory writes the owner. The eight
+  // wiring addresses are the Base canon the template itself pins at deploy (K-3): any other value reverts, so these
+  // can only be the contract's own. test/abi-sync.mjs holds them to abi/PossessioPayments.wiring.json, which is
+  // generated from the source (tools/sync-from-possessio.mjs).
+  var PAY_WIRING={USDC:"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",CBETH:"0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22",MORPHO_VAULT:"0xbeeff7aE5E00Aae3Db302e4B0d8C883810a58100",CHAINLINK_CBETH:"0x806b4Ac04501c29769051e42783cF04dCE41440b",CHAINLINK_USDC:"0x7e860098F58bBFC8648a4311b374B1D669a2bc6B",CHAINLINK_ETH:"0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",CHAINLINK_SEQUENCER:"0xBCF85224fc0756B9Fa45aA7892530B47e10b6433",LST_RATES:"0xDDb75e974d99FcF95E241adbFD376861c47a8548"};
+  var PAY_DEPLOY_PARAMS="tuple(address owner,address usdc,address cbeth,address morphoVault,address chainlink,address chainlinkUsdcUsd,address chainlinkEthUsd,address sequencerUptime,address lstRates,uint256 minSwapBatch,uint256 usdcFloat,uint256 maxKickUsdc,uint256 usdcDailyLimit,uint256 cbEthDailyLimit,address[] payees)";
+  function num(x){return /^\d+(\.\d+)?$/.test(String(x).trim());}
+  // The Payments set-up is complete when the four numbers parse, the smallest sweep is above zero, and the optional
+  // payee is an address.
+  function payOk(){var c=L.cfg;return num(c.float)&&num(c.batch)&&Number(c.batch)>0&&num(c.usdcDaily)&&num(c.cbDaily)&&(c.payee.trim()===""||isAddr(c.payee.trim()));}
+  // initArgs for the factory: DeployParams with the owner as the first payee (an empty payee list deploys a contract
+  // nobody can withdraw from; the constructor refuses it, NoPayees). maxKickUsdc 0 = no cap; set one later.
+  function paymentsInitArgs(owner,cfg){
+    if(!isAddr(owner))throw new Error("connect a wallet or enter a Safe address first");
+    if(!num(cfg.float)||!num(cfg.batch)||!num(cfg.usdcDaily)||!num(cfg.cbDaily))throw new Error("every amount must be a number");
+    var extra=(cfg.payee||"").trim(); if(extra&&!isAddr(extra))throw new Error("the payee is not an address");
+    var payees=[owner]; if(extra&&extra.toLowerCase()!==owner.toLowerCase())payees.push(extra);
+    var p={owner:owner,usdc:PAY_WIRING.USDC,cbeth:PAY_WIRING.CBETH,morphoVault:PAY_WIRING.MORPHO_VAULT,chainlink:PAY_WIRING.CHAINLINK_CBETH,chainlinkUsdcUsd:PAY_WIRING.CHAINLINK_USDC,chainlinkEthUsd:PAY_WIRING.CHAINLINK_ETH,sequencerUptime:PAY_WIRING.CHAINLINK_SEQUENCER,lstRates:PAY_WIRING.LST_RATES,
+      minSwapBatch:ethers.parseUnits(cfg.batch.trim(),6),usdcFloat:ethers.parseUnits(cfg.float.trim(),6),maxKickUsdc:0n,usdcDailyLimit:ethers.parseUnits(cfg.usdcDaily.trim(),6),cbEthDailyLimit:ethers.parseUnits(cfg.cbDaily.trim(),18),payees:payees};
+    if(p.minSwapBatch===0n)throw new Error("the smallest sweep must be above zero");
+    return ethers.AbiCoder.defaultAbiCoder().encode([PAY_DEPLOY_PARAMS],[p]);
   }
   var CT=[cChoose,cOwn,cSetup,cDeploy];
 
@@ -2825,14 +2774,14 @@ refreshTreasury();
   window.LaunchRail={
     askEnv:function(){this.open('main');},  // Taproot: mainnet-only. Testnet retired — a payment rail can't be meaningfully tested with Sepolia USDC.
     closeEnv:function(){document.getElementById("lr-envmodal").hidden=true;},
-    open:function(env){L={env:env,step:0,contract:null,owner:"baseAccount",safe:"",cfg:{name:"",ticker:"",supply:"",liq:""},dep:"ready",addr:""};
+    open:function(env){L={env:env,step:0,contract:null,owner:"baseAccount",safe:"",cfg:{name:"",ticker:"",supply:"",liq:"",float:"",batch:"",usdcDaily:"",cbDaily:"",payee:""},dep:"ready",addr:""};
       document.getElementById("lr-envmodal").hidden=true;document.getElementById("lr-view").hidden=false;document.body.style.overflow="hidden";render();},
     close:function(){document.getElementById("lr-view").hidden=true;document.body.style.overflow="";},
     info:function(id){var p=document.getElementById(id);if(p)p.classList.toggle("open");},
     pickC:function(k){L.contract=k;render();},
     pickO:function(o){L.owner=o;render();},
     setSafe:function(v){L.safe=v.trim();goOk(isAddr(L.safe));},
-    setCfg:function(k,v){L.cfg[k]=v;var c=C[L.contract];var ok=c.config==="payments"?L.cfg.supply.trim()!=="":(L.cfg.name.trim()&&L.cfg.ticker.trim()&&L.cfg.supply.trim()&&L.cfg.liq.trim());goOk(!!ok);},
+    setCfg:function(k,v){L.cfg[k]=v;var c=C[L.contract];var ok=c.config==="payments"?payOk():(L.cfg.name.trim()&&L.cfg.ticker.trim()&&L.cfg.supply.trim()&&L.cfg.liq.trim());goOk(!!ok);},
     edit:function(i){L.step=i;if(i<3)L.dep="ready";render();scrollA();},
     next:function(){L.step++;render();scrollA();},
     deploy:function(){
@@ -2842,8 +2791,14 @@ refreshTreasury();
       // is ever produced. Owner: the Safe address, or the connected account.
       if(!window.LaunchRailLive){return;}
       var owner=L.owner==="safe"?L.safe:(window.PossessioEvm.address||"");
-      window.LaunchRailLive.deploy(owner,"0x");
-    }
+      var initArgs="0x";
+      if(C[L.contract].config==="payments"){
+        try{ initArgs=paymentsInitArgs(owner,L.cfg); }
+        catch(e){ var out=document.getElementById("lr-live-status"); if(out) out.textContent="The set-up is not valid: "+(e.message||e); return; }
+      }
+      window.LaunchRailLive.deploy(owner,initArgs);
+    },
+    paymentsInitArgs:paymentsInitArgs, PAY_WIRING:PAY_WIRING, PAY_DEPLOY_PARAMS:PAY_DEPLOY_PARAMS
   };
   var __lrLaunch = document.getElementById("lr-launch-btn");
 if (__lrLaunch) __lrLaunch.addEventListener("click",function(){LaunchRail.askEnv();});

@@ -40,19 +40,30 @@ of it comes back.
 ## Powered by
 [POSSESSIO](https://github.com/jonb89201-svg/Possessio) — `PossessioPayments`.
 
-**Contract status (2026-10-14).**
-- **Audits.** The contract was audited and re-audited by POSSESSIO's AI council seats, not by a third-party
-  firm. The findings are fixed in source (Possessio `src/PossessioPayments.sol`), with regression tests.
-- **Fixed contract: not deployed yet.** It is pending redeploy.
-- **Pre-fix instance.** The instance live on Base mainnet at `0x67247eB2108E7229331127DF1309D624d95467ca`
-  predates those fixes. Read it as the pre-audit deployment.
-- **Launch rail: off.** The live factory `0x0DD06656…49Bd` pins the pre-fix template
-  (`templateCodehash` `0x14357940…e39d`). The rail stays in preview until a factory pinning the fixed
-  template is deployed.
+**Contract status (2026-10-19).**
+- **The console drives PossessioPayments v3.0.2, the auction sweep.** Incoming USDC above a float is swept
+  on the merchant's schedule: one share deposited to a Morpho USDC vault, the other sold for cbETH in an
+  oracle-floored Dutch auction (`kick` / `take`, floor 99% of Chainlink). Money leaves only to payees set 48
+  hours in advance, within per-asset daily limits, or through a 7-day emergency path. There is no guardian
+  role. The Payments panel covers every write of the contract and the reads that matter, with plain-language
+  labels; the treasury card reads USDC, cbETH and the Morpho position, and checks `isPayee` before a send.
+- **Review.** The contract was audited and re-audited by POSSESSIO's AI council seats; an external review by
+  KupiaSec is in progress (2026-10-19). The findings so far are fixed in source (Possessio
+  `src/PossessioPayments.sol`), with regression tests.
+- **Not deployed yet.** v3.0.2 waits on the external review and the redeploy. The instance live on Base
+  mainnet at `0x67247eB2108E7229331127DF1309D624d95467ca` is the pre-fix build; read it as the pre-audit
+  deployment.
+- **Launch rail: ready, in preview.** The rail builds v3's `DeployParams` (the eight Base addresses the
+  template pins at deploy, the float, the smallest sweep, the two daily limits, the owner as first payee) and
+  hashes `artifacts/payments.json` against the factory's `templateCodehash` on chain before any signature.
+  The live factory `0x0DD06656…49Bd` pins the pre-fix template, so the rail stays in preview until a factory
+  pinning v3.0.2 is deployed and its address is set.
 
-**How the console stays in sync.** The console's Payments panel follows the fixed contract.
-`abi/PossessioPayments.abi.json` is generated from that source. `node test/abi-sync.mjs` fails if the
-panel and the contract drift apart, and if the rail points at the pre-fix factory.
+**How the console stays in sync.** `node tools/sync-from-possessio.mjs <Possessio checkout>` regenerates
+`abi/PossessioPayments.abi.json`, `abi/PossessioPayments.wiring.json` (the Base wiring and the `DeployParams`
+fields, read from the source) and `artifacts/payments.json` (the template's creationCode and its keccak256)
+from a forge build. `node test/abi-sync.mjs` fails if the panel, the rail's wiring or tuple, the artifact or the
+treasury card's fragments drift from them, and if the rail points at the pre-fix factory.
 
 ## Seal 🦭 (beta)
 
@@ -111,7 +122,7 @@ panel and the contract drift apart, and if the rail points at the pre-fix factor
 
 | Command | What it runs |
 |---|---|
-| `npm test` | ABI sync, plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
+| `npm test` | ABI sync (panel, rail wiring and tuple, artifact, treasury fragments), plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
 | `node test/console.smoke.mjs` | The console (`index.html`) in headless Chromium: loads clean, and nothing of the trading desk is left (needs Playwright) |
