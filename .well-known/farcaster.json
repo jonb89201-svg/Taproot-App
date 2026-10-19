@@ -1,0 +1,28 @@
+{
+  "miniapp": {
+    "version": "1",
+    "name": "Taproot",
+    "homeUrl": "https://taproot.possessio.io",
+    "iconUrl": "https://taproot.possessio.io/assets_base/icon_1024.png",
+    "splashImageUrl": "https://taproot.possessio.io/assets_base/splash_200.png",
+    "splashBackgroundColor": "#092114",
+    "subtitle": "Non-custodial USDC payments",
+    "description": "Accept USDC on Base straight to your own wallet. No processor, no chargebacks, no deplatforming. Seal documents with your wallet, free.",
+    "screenshotUrls": [
+      "https://taproot.possessio.io/assets_base/shot1_hero.png",
+      "https://taproot.possessio.io/assets_base/shot2_payments.png",
+      "https://taproot.possessio.io/assets_base/shot3_feed.png"
+    ],
+    "primaryCategory": "finance",
+    "tags": ["payments", "usdc", "base", "merchants", "seal"],
+    "heroImageUrl": "https://taproot.possessio.io/assets_base/banner_1200x630.png",
+    "tagline": "Own your payments",
+    "ogTitle": "Taproot",
+    "ogDescription": "Non-custodial USDC payments on Base. You own the money.",
+    "ogImageUrl": "https://taproot.possessio.io/assets_base/banner_1200x630.png",
+    "noindex": false,
+    "requiredChains": ["eip155:8453"],
+    "requiredCapabilities": ["wallet.getEthereumProvider"],
+    "canonicalDomain": "taproot.possessio.io"
+  }
+}

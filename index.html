@@ -15,7 +15,10 @@
      has nothing to detect even when opened inside Farcaster's own browser;
      (2) Base Builder Rewards' mini-app surface requires the app to actually
      declare itself as one. -->
-<meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://taproot.possessio.io/assets_base/banner_1200x630.png","button":{"title":"Open Taproot","action":{"type":"launch_miniapp","name":"Taproot","url":"https://taproot.possessio.io","splashImageUrl":"https://taproot.possessio.io/assets_base/icon_1024.png","splashBackgroundColor":"#f4f1e6"}}}' />
+<meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://taproot.possessio.io/assets_base/embed_1200x800.png","button":{"title":"Open Taproot","action":{"type":"launch_miniapp","name":"Taproot","url":"https://taproot.possessio.io","splashImageUrl":"https://taproot.possessio.io/assets_base/splash_200.png","splashBackgroundColor":"#092114"}}}' />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/assets_base/icon_180.png" />
+<script>if ("serviceWorker" in navigator) addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />

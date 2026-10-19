@@ -14,8 +14,28 @@ the middle that can hold your balance, claw back a sale, or close your account.
 For any merchant who'd rather own their payments than rent them.
 
 ## Run it
-Single static page. Host on **GitHub Pages** (Settings → Pages → deploy from `main`, root),
-or any static host. Open `index.html` in a wallet browser to try it.
+Single static page. The live copy is served at `taproot.possessio.io` (Cloudflare in front, MEASURED
+2026-10-19); any static host works (GitHub Pages: Settings → Pages → deploy from `main`, root;
+`.nojekyll` keeps `.well-known/` served). Open `index.html` in a wallet browser to try it.
+
+## Install it
+- **Home screen.** The page is an installable web app: `manifest.webmanifest`, icons in `assets_base/`,
+  and `sw.js`, a service worker that stays out of the way (network first on this origin, the last good
+  copy offline; nothing cross-origin is touched). Chrome offers *Install app*; iOS uses *Add to Home Screen*.
+- **Farcaster / Base App mini app.** `/.well-known/farcaster.json` describes the app (icon, splash,
+  screenshots, category, `requiredChains` Base) and the `fc:miniapp` meta tag on the console makes a
+  shared link open it. The signed `accountAssociation` is added by the Architect from Farcaster's
+  manifest tool; the file carries everything else.
+- **Google Play.** A Trusted Web Activity wraps the same site. The whole path, with what is done and
+  what waits on Play's certificate fingerprints, is in [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md).
+  `android/twa-manifest.json` is the Bubblewrap project (no secrets in it).
+- `node test/console.smoke.mjs` measures all of it: the manifest, the worker's registration, the
+  Farcaster manifest's limits and that every image they point at exists.
+
+**The trading desk is gone (2026-10-19).** The in-console AI trading desk prototype, its Funding Vault,
+Auto-Target and Trader Rail panels, the vault launch type, the Solana leg and the desk error sink were
+removed from the console. Taproot is a payments console. `node test/console.smoke.mjs` goes red if any
+of it comes back.
 
 ## Powered by
 [POSSESSIO](https://github.com/jonb89201-svg/Possessio) — `PossessioPayments`.
@@ -54,6 +74,20 @@ panel and the contract drift apart, and if the rail points at the pre-fix factor
   with their signatures, existed by that block. The transaction pays **$0.02 in ETH**, priced live from
   Chainlink ETH/USD and rounded up, plus network gas. Calldata is `"SEAL"` + `0x01` + root + the Taproot
   Builder Code suffix.
+- **Verifying an anchored seal** (since 2026-10-19, after KupiaSec's review of the Seal). The verifier judges the
+  seal at its anchor, not at today's state:
+  - The anchor transaction must have gone to the Seal fee wallet, carry the batch's root, and pay the fee its
+    block owed: $0.02 at the ETH/USD price in force at that block, read from the feed at that block. An anchor
+    that paid less than 95% of it (`FEE_TOLERANCE_BPS`, room for the price to move between the quote and the
+    block) fails the `anchor fee` check. Before this, the verifier read only the calldata and the root, so the
+    fee was optional.
+  - Every signature is checked against the chain's state **at the anchor's block**. A smart wallet's owners can
+    change after a seal is anchored, or before: what counts is who owned the wallet when the anchor landed.
+    Before this, smart-wallet signatures were checked against today's state.
+  - Both need an RPC that holds state at the anchor's block. The public Base and Base Sepolia endpoints do
+    (MEASURED 2026-10-19: `eth_call` served 20,000,000 blocks behind the head on both). An RPC that doesn't
+    says so in the check instead of blaming the signature, and the seal is not claimed.
+  - A seal without an anchor has no such moment; its signatures are checked at the latest block, as before.
 - **Where the fee goes.**
   - The fee goes to the Seal fee wallet `0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9`, a plain wallet, on Base and
     on Base Sepolia.
@@ -80,6 +114,7 @@ panel and the contract drift apart, and if the rail points at the pre-fix factor
 | `npm test` | ABI sync, plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
+| `node test/console.smoke.mjs` | The console (`index.html`) in headless Chromium: loads clean, and nothing of the trading desk is left (needs Playwright) |
 
 ## License
 MIT — see [LICENSE](LICENSE).
