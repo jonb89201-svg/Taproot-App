@@ -12,7 +12,7 @@ import { spawn, execSync } from "child_process";
 import { fileURLToPath } from "url";
 import {
   createPublicClient, createWalletClient, http, getAddress, keccak256, toHex,
-  encodeAbiParameters, encodeFunctionData, concat, getContractAddress, parseAbi,
+  encodeAbiParameters, encodeFunctionData, concat, getContractAddress, parseAbi, custom,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import * as S from "../seal-core.mjs";
@@ -246,6 +246,74 @@ try {
     const back = await viaLink(x);
     ok(!back.error && lower(back) === lower(x) && (await S.verifySeal(back, { client: pub })).ok, `a real ${name} smart-wallet seal survives the compact link and still verifies`);
   }
+  // ---- The anchor must pay (KupiaSec, 2026-10-15: the verifier read only the calldata and the root, so the fee
+  //      was optional). It must go to the fee wallet and pay the fee its block owed, within FEE_TOLERANCE_BPS.
+  const check = (res, name) => res.checks.find((x) => x.name === name);
+  const anchorTo = async (to, value) => {
+    const h = await wal.sendTransaction({ to, value, data: S.anchorCalldata(plan.root) });
+    await pub.waitForTransactionReceipt({ hash: h });
+    const s = { ...anchored[0], anchor: { ...anchored[0].anchor, txHash: h } };
+    return { s, r: await S.verifySeal(s, { client: pub }) };
+  };
+  r = (await anchorTo(A1.address, q.wei)).r;
+  ok(!r.ok && check(r, "anchor transaction").ok === false && /fee wallet/.test(check(r, "anchor transaction").detail), "an anchor with the right root sent anywhere but the fee wallet fails");
+  r = (await anchorTo(feeTo, 0n)).r;
+  ok(!r.ok && check(r, "anchor transaction").ok === true && check(r, "anchor fee").ok === false, "an anchor to the fee wallet that pays nothing fails the fee check");
+  const half = await anchorTo(feeTo, q.wei / 2n);
+  ok(!half.r.ok && /^UNDER-PAID/.test(check(half.r, "anchor fee").detail), "half the fee is under-paid");
+  r = (await anchorTo(feeTo, (q.wei * 94n) / 100n)).r;
+  ok(!r.ok && check(r, "anchor fee").ok === false, "94% of the fee is under-paid (tolerance " + S.FEE_TOLERANCE_BPS + " bps)");
+  r = (await anchorTo(feeTo, (q.wei * 96n) / 100n)).r;
+  ok(r.ok && check(r, "anchor fee").ok === true, "96% of the fee passes: the price can move between the quote and the block");
+  ok(/^paid [0-9.]+ ETH against [0-9.]+ ETH owed \(\$0\.02 at [0-9.]+ ETH\/USD, the price in force at block \d+\)$/.test(check(r, "anchor fee").detail), "the fee check says what was paid, what was owed and the price it used");
+
+  // ---- The fee is judged at the anchor's block, not today's. Hand the feed a doubled price (the fee in ETH halves
+  //      today): the half-paid anchor above still fails and the full one still passes, each at its own block's price.
+  const mock = await dep("MockFeed", [q.answer * 2n]);
+  await pub.request({ method: "anvil_setCode", params: [S.CHAINS[CHAIN].ethUsdFeed, await pub.getCode({ address: mock })] });
+  const qNow = await S.quoteFee(pub, CHAIN, Number((await pub.getBlock()).timestamp));
+  ok(qNow.answer === q.answer * 2n && qNow.wei <= q.wei / 2n + 1n, "today's quote halves with the doubled price");
+  r = await S.verifySeal(half.s, { client: pub });
+  ok(!r.ok && check(r, "anchor fee").ok === false, "the half-paid anchor still fails: judged at the price in force at its block");
+  r = await S.verifySeal(anchored[0], { client: pub });
+  ok(r.ok && check(r, "anchor fee").detail.includes("at " + (Number(q.answer) / 10 ** q.decimals).toFixed(2) + " ETH/USD"), "the full-paid anchor still passes, at its block's price");
+
+  // ---- Signatures are judged at the anchor's block (KupiaSec, 2026-10-15: smart-wallet signatures were checked
+  //      against today's state). A smart wallet's owner can change; what counts is who owned it when the anchor
+  //      landed. sc is signed by the owner A1, scBad by A2. Anchor both in one batch (an anchor commits bytes, not
+  //      validity), then hand the wallet to A2 by swapping in the code of a Mini1271 owned by A2.
+  const planW = S.buildAnchorTx({ chainId: CHAIN, seals: [sc, scBad], feeWei: q.wei });
+  const hW = await wal.sendTransaction(planW.tx);
+  await pub.waitForTransactionReceipt({ hash: hW });
+  const [ownerThen, strangerThen] = S.attachAnchor([sc, scBad], planW.leaves, planW.root, hW);
+  const sigName = "signature " + getAddress(w1271);
+  r = await S.verifySeal(ownerThen, { client: pub });
+  ok(r.ok && /at the anchor's block \d+/.test(check(r, sigName).detail), "an anchored smart-wallet seal is checked at the anchor's block");
+  const w1271b = await dep("Mini1271", [A2.address]);
+  await pub.request({ method: "anvil_setCode", params: [w1271, await pub.getCode({ address: w1271b })] });
+  r = await S.verifySeal(sc, { client: pub });
+  ok(!r.ok && /at the latest block/.test(check(r, sigName).detail), "after the owner change, the old owner's unanchored seal no longer verifies today");
+  r = await S.verifySeal(ownerThen, { client: pub });
+  ok(r.ok, "anchored, it still does: at its block, A1 owned the wallet");
+  r = await S.verifySeal(scBad, { client: pub });
+  ok(r.ok, "today, the new owner's signature verifies on an unanchored seal");
+  r = await S.verifySeal(strangerThen, { client: pub });
+  ok(!r.ok && check(r, sigName).ok === false, "anchored before the change, it fails: A2 did not own the wallet at that block");
+
+  // ERC-6492 at the anchor's block: the wallet is still not deployed, and the deployless check works there too.
+  const plan6 = S.buildAnchorTx({ chainId: CHAIN, seals: [s6492], feeWei: q.wei });
+  const h6 = await wal.sendTransaction(plan6.tx);
+  await pub.waitForTransactionReceipt({ hash: h6 });
+  r = await S.verifySeal(S.attachAnchor([s6492], plan6.leaves, plan6.root, h6)[0], { client: pub });
+  ok(r.ok && (await pub.getCode({ address: cf })) === undefined, "an anchored ERC-6492 seal verifies at its block, wallet still undeployed");
+
+  // An RPC without state at the anchor's block can do neither check. It says so, and the seal is not claimed.
+  const noHistory = createPublicClient({ chain, transport: custom({ request: async ({ method, params }) => {
+    if ((method === "eth_call" || method === "eth_getCode") && params[1] && params[1] !== "latest" && params[1] !== "pending") throw new Error("missing trie node");
+    return pub.request({ method, params });
+  } }) });
+  r = await S.verifySeal(ownerThen, { client: noHistory });
+  ok(!r.ok && /holds no state at block/.test(check(r, sigName).detail) && /could not price the fee/.test(check(r, "anchor fee").detail), "an RPC with no state at the anchor's block says so instead of blaming the signature, and the fee is not claimed");
 } finally {
   anvil.kill();
 }

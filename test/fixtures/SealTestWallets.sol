@@ -23,3 +23,17 @@ contract Mini1271Factory {
         w = address(new Mini1271{salt: salt}(owner));
     }
 }
+
+// A Chainlink-shaped ETH/USD feed with a fixed price, for the test that swaps the real feed's code out
+// (anvil_setCode) to show that the fee is judged at the anchor's block, not today's. decimals() is 8, like the real one.
+contract MockFeed {
+    int256 public immutable answer;
+
+    constructor(int256 a) { answer = a; }
+
+    function decimals() external pure returns (uint8) { return 8; }
+
+    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
+        return (1, answer, block.timestamp, block.timestamp, 1);
+    }
+}

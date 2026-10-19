@@ -167,7 +167,7 @@ try {
   await page.click("#v-run");
   await page.waitForFunction(() => /Every check passed|Some checks failed|err/.test(document.getElementById("v-msg").textContent + document.getElementById("v-msg").className), null, { timeout: 30000 });
   const lis = await page.$$eval("#v-out li", (x) => x.map((l) => l.className + ": " + l.textContent));
-  ok(/Every check passed/.test(await page.textContent("#v-msg")) && lis.length === 6 && lis.every((l) => l.startsWith("ok")), "Verify passes all 6 checks (format, document, 2 signatures, proof, transaction)");
+  ok(/Every check passed/.test(await page.textContent("#v-msg")) && lis.length === 7 && lis.every((l) => l.startsWith("ok")) && lis.some((l) => /anchor fee.*paid /.test(l)), "Verify passes all 7 checks (format, document, proof, transaction, fee, 2 signatures at the anchor's block)");
   await page.setInputFiles("#v-doc", { name: "x.txt", mimeType: "text/plain", buffer: Buffer.from("tampered") });
   await page.click("#v-run");
   await page.waitForFunction(() => /Some checks failed|Every check/.test(document.getElementById("v-msg").textContent), null, { timeout: 30000 });
