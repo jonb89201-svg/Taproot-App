@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node test/abi-sync.mjs && node test/seal.test.mjs"
+    "test": "node test/abi-sync.mjs && node test/share-tags.mjs && node test/seal.test.mjs"
   },
   "devDependencies": {
     "viem": "2.21.54"
