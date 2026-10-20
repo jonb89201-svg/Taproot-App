@@ -1,7 +1,7 @@
 {
   "packageId": "io.taproot.possessio",
   "host": "taproot.possessio.io",
-  "name": "Taproot — non-custodial USDC payments",
+  "name": "Taproot \u2014 non-custodial USDC payments",
   "launcherName": "Taproot",
   "display": "standalone",
   "themeColor": "#ffffff",
@@ -16,24 +16,47 @@
   "iconUrl": "https://taproot.possessio.io/assets_base/icon_512.png",
   "maskableIconUrl": "https://taproot.possessio.io/assets_base/icon_512_maskable.png",
   "splashScreenFadeOutDuration": 300,
-  "signingKey": { "path": "./android.keystore", "alias": "android" },
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
   "appVersionName": "1.0.0",
   "appVersionCode": 1,
   "shortcuts": [
-    { "name": "Seal a document", "shortName": "Seal", "url": "/seal.html", "chosenIconUrl": "https://taproot.possessio.io/assets_base/icon_192.png" }
+    {
+      "name": "Seal a document",
+      "shortName": "Seal",
+      "url": "/seal.html",
+      "chosenIconUrl": "https://taproot.possessio.io/assets_base/icon_192.png"
+    }
   ],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://taproot.possessio.io/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://taproot.possessio.io/",
   "minSdkVersion": 21,
   "orientation": "portrait",
-  "fingerprints": [],
+  "fingerprints": [
+    {
+      "name": "Play app signing key (deployment_cert.der)",
+      "value": "C9:EC:17:59:2C:25:BB:DA:B5:66:E2:E4:A4:7D:94:E4:CB:94:20:5C:8A:3C:EB:AB:AD:88:E5:FE:E3:3D:6B:6B"
+    },
+    {
+      "name": "Play hybrid classical key (hybrid_classical_cert.der)",
+      "value": "ED:1E:C2:C7:3D:3A:E3:C6:CA:4A:CB:3A:38:13:B3:C8:62:A2:F0:91:8C:6F:A9:1E:BE:AE:E1:44:B1:EE:16:BF"
+    },
+    {
+      "name": "Play hybrid PQC key (hybrid_pqc_cert.der)",
+      "value": "43:E6:1B:D9:09:8C:2F:92:D3:40:5D:6D:61:9B:CA:37:95:8A:93:50:CB:A9:FB:C8:61:55:4D:D0:55:6F:AA:82"
+    }
+  ],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "appVersion": "1.0.0"

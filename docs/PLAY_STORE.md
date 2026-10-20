@@ -13,6 +13,7 @@ the Play Console and a browser. Nothing here needs a terminal.
 | Icons | `assets_base/icon_192.png`, `icon_512.png`, `icon_512_maskable.png`, `icon_180.png` | Launcher icons, including the maskable one Android crops |
 | Listing art | `assets_base/icon_512.png`, `feature_1024x500.png`, `shot*_9x16.png` | Play's icon, feature graphic and phone screenshots |
 | Wrapper project | `android/twa-manifest.json` | For a local Bubblewrap build; the PWABuilder route below needs none of it |
+| Digital Asset Links | `/.well-known/assetlinks.json`, `android/certs/*.der` | Binds the wrapper to Play's signing certificates so the app opens without Chrome's address bar (MEASURED by `node test/assetlinks.mjs`, Step 4) |
 | Privacy page | `/privacy.html` | Play requires a privacy policy URL for every app. **Draft: read it before you paste the URL** |
 
 ## Why a wrapper, and which one
@@ -66,9 +67,12 @@ Alternative for a computer with JDK 17 and the Android SDK: `npm i -g @bubblewra
 1. https://play.google.com/console → **Create app**: name `Taproot`, App, Free, accept the declarations.
 2. **Testing → Internal testing → Create release** → upload `app-release-bundle.aab`. Play App
    Signing is on by default: Google holds the app signing key, your keystore is the upload key.
-3. **Setup → App integrity → App signing key certificate**: copy the **SHA-256 certificate
-   fingerprint**. Copy the **Upload key certificate** SHA-256 as well.
-4. Send me both fingerprints. They are public values (certificate hashes), safe to paste.
+3. **Protected with Play → Play Store distribution → "Go to Play app signing"** (the console's search box,
+   `app signing`, gets there faster; the page's URL ends in `/keymanagement`). Use the page's **certificate
+   download**: a `certificates.zip` holding `deployment_cert.der` (the app signing key) and, with Play's
+   quantum-ready hybrid signing, `hybrid_classical_cert.der` and `hybrid_pqc_cert.der`. The old
+   "App integrity" page now holds the Play Integrity API, not signing (2026-10-20).
+4. Send me the zip. Certificates are public values; the fingerprints are computed from them, never copied.
 5. **Before production: closed testing.** Reported for personal developer accounts created after
    2023-11-13: production stays locked until a closed test has run with at least 12 opted-in testers
    for 14 days in a row (organization accounts, which need a D-U-N-S number, are reported exempt).
@@ -76,21 +80,27 @@ Alternative for a computer with JDK 17 and the Android SDK: `npm i -g @bubblewra
    Console shows. If it applies, start the closed test as early as possible; the 14 days are the
    longest step here.
 
-## Step 4 (me) — Digital Asset Links
+## Step 4 (me) — Digital Asset Links: in place since 2026-10-20
 
-With the two fingerprints I add `/.well-known/assetlinks.json`:
+`/.well-known/assetlinks.json` names package `io.taproot.possessio` and the SHA-256 fingerprints of the three
+certificates Play issued at the first upload (2026-10-20 17:15 UTC, valid to 2056), committed as
+`android/certs/*.der`:
 
-```json
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": { "namespace": "android_app", "package_name": "io.taproot.possessio",
-              "sha256_cert_fingerprints": ["<Play app signing SHA-256>", "<upload key SHA-256>"] }
-}]
-```
+| Certificate | SHA-256 |
+|---|---|
+| `deployment_cert.der`, the app signing key | `C9:EC:17:59:2C:25:BB:DA:B5:66:E2:E4:A4:7D:94:E4:CB:94:20:5C:8A:3C:EB:AB:AD:88:E5:FE:E3:3D:6B:6B` |
+| `hybrid_classical_cert.der` | `ED:1E:C2:C7:3D:3A:E3:C6:CA:4A:CB:3A:38:13:B3:C8:62:A2:F0:91:8C:6F:A9:1E:BE:AE:E1:44:B1:EE:16:BF` |
+| `hybrid_pqc_cert.der` | `43:E6:1B:D9:09:8C:2F:92:D3:40:5D:6D:61:9B:CA:37:95:8A:93:50:CB:A9:FB:C8:61:55:4D:D0:55:6F:AA:82` |
 
-It is not in this PR because the fingerprints do not exist yet, and an invented one would be a
-lie the wrapper acts on. Check after it lands:
-`https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://taproot.possessio.io&relation=delegate_permission/common.handle_all_urls`
+`node test/assetlinks.mjs` (in `npm test`) recomputes every fingerprint from the DER bytes, so a typed, stale or
+placeholder value fails, and checks that the Bubblewrap project carries the same package and fingerprints;
+`--mutants` plants seven breaks that must each be caught. **The upload key is not listed**: Play re-signs what
+users install, so the upload key signs nothing a user runs. A sideloaded `app-release-signed.apk` therefore
+still shows Chrome's address bar; the app installed from Play does not.
+
+Check after each deploy (both must list the three fingerprints):
+- `https://taproot.possessio.io/.well-known/assetlinks.json`, served as JSON;
+- `https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://taproot.possessio.io&relation=delegate_permission/common.handle_all_urls`
 
 ## Step 5 (you) — the store listing
 
@@ -129,7 +139,7 @@ lie the wrapper acts on. Check after it lands:
 
 ## Not in this PR, on purpose
 
-- `.well-known/assetlinks.json` — waits on the fingerprints (Step 3).
+- `.well-known/assetlinks.json` — landed 2026-10-20 with Play's certificates (Step 4).
 - The `.aab` — not in git. PWABuilder builds it from the live site and the settings above; the first
   one was accepted by the Play Console on 2026-10-20 (reported by the Architect).
 - The Farcaster `accountAssociation` — https://farcaster.xyz/~/developers/mini-apps/manifest signs
