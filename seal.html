@@ -6,6 +6,20 @@
 <meta name="theme-color" content="#f4f1e6" />
 <title>Seal — Taproot</title>
 <meta name="description" content="Seal a document with your wallet. The file never leaves your device. Free to sign and verify; anchoring on Base costs $0.02 in ETH." />
+<link rel="canonical" href="https://taproot.possessio.io/seal" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://taproot.possessio.io/seal" />
+<meta property="og:title" content="Taproot's Seal hash-fingerprint" />
+<meta property="og:description" content="Your wallet signs the file's fingerprint. The file never leaves your device. Free to sign and verify; anchoring on Base costs $0.02 in ETH." />
+<meta property="og:image" content="https://taproot.possessio.io/assets_base/seal_card_1200x630.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Taproot's Seal hash-fingerprint: your wallet signs the file's fingerprint." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Taproot's Seal hash-fingerprint" />
+<meta name="twitter:description" content="Your wallet signs the file's fingerprint. The file never leaves your device. Free to sign and verify; anchoring on Base costs $0.02 in ETH." />
+<meta name="twitter:image" content="https://taproot.possessio.io/assets_base/seal_card_1200x630.png" />
+<meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://taproot.possessio.io/assets_base/seal_embed_1200x800.png","button":{"title":"Open Seal","action":{"type":"launch_miniapp","name":"Taproot","url":"https://taproot.possessio.io/seal","splashImageUrl":"https://taproot.possessio.io/assets_base/splash_200.png","splashBackgroundColor":"#092114"}}}' />
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="apple-touch-icon" href="/assets_base/icon_180.png" />
 <script>if ("serviceWorker" in navigator) addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });</script>
@@ -51,7 +65,7 @@ main{max-width:720px;margin:0 auto;padding:16px}
 .hint{font-size:12px;color:var(--ink-faint)}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .checks{list-style:none;margin-top:8px}
-.checks li{padding:8px 10px;border-radius:8px;margin:4px 0;border:1px solid var(--line)}
+.checks li{padding:8px 10px;border-radius:8px;margin:4px 0;border:1px solid var(--line);overflow-wrap:anywhere}
 .checks li.ok{background:var(--oxide-faint);border-color:#b7dca4}
 .checks li.bad{background:var(--danger-faint);border-color:#f3c4c4}
 .checks .n{font-weight:600}
@@ -175,14 +189,42 @@ async function getProvider() {
   }
   if (window.ethereum) return (state.provider = window.ethereum);
   try {
-    const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk");
+    const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk@0.3.0");
     if (await sdk.isInMiniApp?.()) return (state.provider = (await sdk.wallet.getEthereumProvider?.()) || null);
   } catch {}
   return null;
 }
+// No wallet in this browser (a phone's Safari or Chrome): WalletConnect pairs the page with a wallet app.
+// The bundle is served from this site (vendor/, built by tools/build-walletconnect.sh from a lockfile) and
+// loaded only now. The project ID is Reown's public app identifier; it ships in every page by design.
+const WC_PROJECT_ID = "5ef3ca75e14e7a14fead0d0db215a80b";
+const WC_BUNDLE = "/vendor/walletconnect-ethereum-provider-2.25.0.mjs";
+async function walletConnect() {
+  let EthereumProvider;
+  try { ({ EthereumProvider } = await import(WC_BUNDLE)); }
+  catch { throw new Error("No wallet found, and WalletConnect could not load. Open this page in a wallet browser, or install a wallet."); }
+  const p = await EthereumProvider.init({
+    projectId: WC_PROJECT_ID,
+    // Both chains as optional, Base first (the default). WalletConnect 2.25 folds required chains into optional ones
+    // and drops them when both lists are given: [8453] + [84532] reached the wallet as Base Sepolia alone.
+    optionalChains: [8453, 84532],
+    showQrModal: true,
+    // listed first in the picker; IDs from Reown's wallet directory: MetaMask, Rainbow, Trust. (The picker leaves the
+    // Base / Coinbase Wallet app to a connector this page does not load; its users open the page in that app's browser.)
+    qrModalOptions: { explorerRecommendedWalletIds: [
+      "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96",
+      "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369",
+      "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0",
+    ] },
+    metadata: { name: "Taproot Seal", description: "Seal a document with your wallet.", url: location.origin, icons: [location.origin + "/assets_base/icon_192.png"] },
+  });
+  await p.connect();   // opens the wallet list: on a phone it hands off to the wallet app, on a computer it shows a QR code
+  p.on("accountsChanged", (accs) => { state.address = accs[0] || null; $("who").textContent = accs[0] ? short(accs[0]) : ""; });
+  p.on("disconnect", () => { if (state.provider === p) state.provider = null; state.address = null; $("who").textContent = ""; $("connect").textContent = "Connect wallet"; });
+  return (state.provider = p);
+}
 async function connect() {
-  const p = await getProvider();
-  if (!p) throw new Error("No wallet found. Open this page in a wallet browser, or install a wallet.");
+  const p = (await getProvider()) || (await walletConnect());
   const [a] = await p.request({ method: "eth_requestAccounts" });
   state.address = a;
   $("who").textContent = short(a);

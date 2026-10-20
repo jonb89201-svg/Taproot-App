@@ -1,0 +1,1 @@
+{"name":"taproot-seal-walletconnect-build","private":true,"type":"module","dependencies":{"@walletconnect/ethereum-provider":"2.25.0","esbuild":"0.28.2"}}

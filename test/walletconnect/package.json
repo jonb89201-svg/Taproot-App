@@ -1,0 +1,1 @@
+{"name":"taproot-seal-walletconnect-e2e","private":true,"type":"module","dependencies":{"@reown/walletkit":"1.6.0","@walletconnect/core":"2.25.0","@walletconnect/utils":"2.25.0","esbuild":"0.28.2","viem":"2.21.54"}}
