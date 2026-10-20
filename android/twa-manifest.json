@@ -1,5 +1,5 @@
 {
-  "packageId": "io.possessio.taproot",
+  "packageId": "io.taproot.possessio",
   "host": "taproot.possessio.io",
   "name": "Taproot — non-custodial USDC payments",
   "launcherName": "Taproot",

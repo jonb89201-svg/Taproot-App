@@ -34,7 +34,7 @@ certificate. Until that file is live, the wrapper still works but shows Chrome's
 ## Step 2 (you) — build the Android package with PWABuilder
 
 1. https://www.pwabuilder.com → enter `https://taproot.possessio.io` → **Package for stores** → **Android**.
-2. Settings: Package ID `io.possessio.taproot` · App name `Taproot` · Launcher name `Taproot` ·
+2. Settings: Package ID `io.taproot.possessio` · App name `Taproot` · Launcher name `Taproot` ·
    App version `1.0.0`, version code `1` · Host `taproot.possessio.io` · Start URL `/` ·
    Display `standalone` · Theme and background color `#ffffff` · Icon `/assets_base/icon_512.png` ·
    Maskable icon `/assets_base/icon_512_maskable.png` · Signing key: **Create new** (PWABuilder
@@ -45,6 +45,18 @@ certificate. Until that file is live, the wrapper still works but shows Chrome's
    - `signing.keystore` and `signing-key-info.txt` — **secrets**. Keep them where you keep the
      RRC key material. Every future update must be signed with this key. Never in git, never in chat.
    - `assetlinks.json` — carries the **upload** key's SHA-256. Step 4 needs it, plus one more value.
+
+Measured on the first upload (2026-10-20, reported by the Architect from the Play Console and PWABuilder):
+
+- **The Play Console holds the package name to `io.taproot.possessio`.** A bundle with any other name
+  is refused at upload ("package name must be io.taproot.possessio"). The name cannot be changed
+  afterwards, so every rebuild uses it.
+- **PWABuilder starts each build from its defaults, not from the last one:** Package ID
+  `io.possessio.taproot.twa`, Start URL `/`, version `1.0.0.0`, signing key *None*. Re-enter the
+  settings above every time. A default build was refused twice that night: unsigned first, then for
+  the package name.
+- **A signed build takes 30 to 40 seconds to download; an unsigned one arrives within seconds.** A
+  zip that comes back at once was built without a key.
 
 Alternative for a computer with JDK 17 and the Android SDK: `npm i -g @bubblewrap/cli`, then
 `cd android && bubblewrap build` using the committed `twa-manifest.json`.
@@ -71,7 +83,7 @@ With the two fingerprints I add `/.well-known/assetlinks.json`:
 ```json
 [{
   "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": { "namespace": "android_app", "package_name": "io.possessio.taproot",
+  "target": { "namespace": "android_app", "package_name": "io.taproot.possessio",
               "sha256_cert_fingerprints": ["<Play app signing SHA-256>", "<upload key SHA-256>"] }
 }]
 ```
@@ -118,7 +130,8 @@ lie the wrapper acts on. Check after it lands:
 ## Not in this PR, on purpose
 
 - `.well-known/assetlinks.json` — waits on the fingerprints (Step 3).
-- The `.aab` — PWABuilder builds it from the live site, after merge.
+- The `.aab` — not in git. PWABuilder builds it from the live site and the settings above; the first
+  one was accepted by the Play Console on 2026-10-20 (reported by the Architect).
 - The Farcaster `accountAssociation` — https://farcaster.xyz/~/developers/mini-apps/manifest signs
   the domain with your Farcaster custody key (desktop page, phone confirms); paste the result into
   `.well-known/farcaster.json` next to `miniapp`.
