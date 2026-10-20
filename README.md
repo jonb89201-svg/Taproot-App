@@ -26,8 +26,9 @@ Single static page. The live copy is served at `taproot.possessio.io` (Cloudflar
   screenshots, category, `requiredChains` Base) and the `fc:miniapp` meta tag on the console makes a
   shared link open it. The signed `accountAssociation` is added by the Architect from Farcaster's
   manifest tool; the file carries everything else.
-- **Google Play.** A Trusted Web Activity wraps the same site. The whole path, with what is done and
-  what waits on Play's certificate fingerprints, is in [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md).
+- **Google Play.** A Trusted Web Activity wraps the same site. `/.well-known/assetlinks.json` binds it to Play's
+  signing certificates (`android/certs/`; `node test/assetlinks.mjs` recomputes every fingerprint from them), so
+  the app opens without Chrome's address bar. The whole path is in [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md).
   `android/twa-manifest.json` is the Bubblewrap project (no secrets in it).
 - `node test/console.smoke.mjs` measures all of it: the manifest, the worker's registration, the
   Farcaster manifest's limits and that every image they point at exists.
@@ -138,7 +139,7 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
 
 | Command | What it runs |
 |---|---|
-| `npm test` | ABI sync (panel, rail wiring and tuple, artifact, treasury fragments), plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
+| `npm test` | ABI sync (panel, rail wiring and tuple, artifact, treasury fragments), the share cards, the Play asset links (fingerprints recomputed from the committed certificates), plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
 | `cd test/walletconnect && npm ci && node e2e.mjs` | A real WalletConnect round trip: the page with no wallet, served as `https://taproot.possessio.io`, pairs over the live relay with a throwaway wallet in a second browser profile, which signs and then anchors on an anvil fork of Base mainnet; the page accepts the signature, and the anchor pays the fee wallet exactly the quoted fee, carries the Builder Code and re-verifies. `--mutants` plants four breaks that must each fail, among them a wallet that sends the fee to itself (needs anvil, Playwright and network) |

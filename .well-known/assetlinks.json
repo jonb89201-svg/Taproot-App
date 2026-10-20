@@ -1,0 +1,12 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.taproot.possessio",
+    "sha256_cert_fingerprints": [
+      "C9:EC:17:59:2C:25:BB:DA:B5:66:E2:E4:A4:7D:94:E4:CB:94:20:5C:8A:3C:EB:AB:AD:88:E5:FE:E3:3D:6B:6B",
+      "ED:1E:C2:C7:3D:3A:E3:C6:CA:4A:CB:3A:38:13:B3:C8:62:A2:F0:91:8C:6F:A9:1E:BE:AE:E1:44:B1:EE:16:BF",
+      "43:E6:1B:D9:09:8C:2F:92:D3:40:5D:6D:61:9B:CA:37:95:8A:93:50:CB:A9:FB:C8:61:55:4D:D0:55:6F:AA:82"
+    ]
+  }
+}]
