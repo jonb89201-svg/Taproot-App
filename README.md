@@ -80,6 +80,18 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
     under a stranger's address and still verified (MEASURED 2026-10-15: 284 of 438 one-byte changes).
   - A smart-wallet signer is carried whole.
   - Short links made before the check (version 2, 2026-10-15) still open.
+- **Phones (WalletConnect).** A browser with no wallet of its own (a phone's Safari or Chrome) gets WalletConnect when
+  it taps Connect or Add my signature: a list of wallet apps on a phone, a QR code on a computer. The wallet app
+  approves, and the page carries on as with any wallet. Regular wallets connected this way can anchor too.
+  - The bundle (`vendor/walletconnect-ethereum-provider-2.25.0.mjs`, @walletconnect/ethereum-provider 2.25.0 with
+    Reown AppKit 1.8.19) is served from this site and loaded only at that moment. `tools/build-walletconnect.sh`
+    rebuilds it byte-identical from `tools/walletconnect/package-lock.json`.
+  - The Reown project ID in `seal.html` is a public app identifier; it ships in the page by design.
+  - Base and Base Sepolia are both offered as optional chains, Base first. WalletConnect 2.25 drops required chains
+    when optional ones are also given: `chains: [8453]` with `optionalChains: [84532]` reached the wallet as Base
+    Sepolia alone (MEASURED 2026-10-20).
+  - The Base / Coinbase Wallet app is not in this picker (Reown leaves it to a connector this page doesn't load).
+    Its users open the page in that app's browser.
 - **Free.** Signing and verifying cost nothing.
 - **Anchoring.** One Base transaction posts a Merkle root of any number of signed seals. That proves the seals,
   with their signatures, existed by that block. The transaction pays **$0.02 in ETH**, priced live from
@@ -125,6 +137,7 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
 | `npm test` | ABI sync (panel, rail wiring and tuple, artifact, treasury fragments), plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
+| `cd test/walletconnect && npm ci && node e2e.mjs` | A real WalletConnect round trip: the page with no wallet, served as `https://taproot.possessio.io`, pairs over the live relay with a throwaway wallet in a second browser profile, which signs; the page accepts and re-verifies on Base. `--mutants` plants three breaks that must each fail (needs Playwright and network) |
 | `node test/console.smoke.mjs` | The console (`index.html`) in headless Chromium: loads clean, and nothing of the trading desk is left (needs Playwright) |
 
 ## License
