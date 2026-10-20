@@ -57,6 +57,12 @@ Alternative for a computer with JDK 17 and the Android SDK: `npm i -g @bubblewra
 3. **Setup → App integrity → App signing key certificate**: copy the **SHA-256 certificate
    fingerprint**. Copy the **Upload key certificate** SHA-256 as well.
 4. Send me both fingerprints. They are public values (certificate hashes), safe to paste.
+5. **Before production: closed testing.** Reported for personal developer accounts created after
+   2023-11-13: production stays locked until a closed test has run with at least 12 opted-in testers
+   for 14 days in a row (organization accounts, which need a D-U-N-S number, are reported exempt).
+   Read from third-party guides on 2026-10-20, not from Google's own page: check what your Play
+   Console shows. If it applies, start the closed test as early as possible; the 14 days are the
+   longest step here.
 
 ## Step 4 (me) — Digital Asset Links
 
@@ -78,9 +84,15 @@ lie the wrapper acts on. Check after it lands:
 
 - App icon: `assets_base/icon_512.png` (512×512 PNG, 227 KB; Play's limit is 1 MB).
 - Feature graphic: `assets_base/feature_1024x500.png`.
-- Phone screenshots (2 to 8): `assets_base/shot1_hero_9x16.png` … `shot4_slider_9x16.png`
-  (1284×2283, 9:16). The 1284×2778 originals are there too if the Console takes them.
-- Short description (80 chars max): `Non-custodial USDC payments on Base. You own the money.`
+- Phone screenshots (2 to 8), all 1284×2283 (9:16):
+  - Seal, live today: `assets_base/shot5_seal_choose_9x16.png`, `shot6_seal_signed_9x16.png`,
+    `shot7_seal_verified_9x16.png`, `shot8_seal_changed_9x16.png`. A real seal of a sample bill of sale,
+    signed by two throwaway wallets; `shot8` is Verify after "$250" became "$950" in the file.
+  - Payments console: `shot1_hero_9x16.png` … `shot4_slider_9x16.png`.
+  - Lead with Seal. Launching a payments contract is paused until the contracts are audited, and a
+    reviewer tests what the listing promises.
+- Short description (80 chars max): `Seal documents with your wallet. Proof on Base for $0.02.` (57).
+  The old one, `Non-custodial USDC payments on Base. You own the money.`, describes the paused part.
 - Full description: start from the README's first section.
 - Privacy policy URL: `https://taproot.possessio.io/privacy.html` — read the draft first.
 - Category: Finance. Contact email: yours.
@@ -92,6 +104,11 @@ lie the wrapper acts on. Check after it lands:
   in the user's wallet. Third parties the page talks to: Base RPC endpoints (reads), the Chainlink
   ETH/USD feed (reads), CDNs for `ethers`, `viem` and fonts, Cloudflare for hosting. Answer from
   what the code does.
+  - **WalletConnect** (since 2026-10-20) is the one third party that collects something: when a user
+    with no wallet in the browser chooses it, Reown's relay sees the IP address, and the WalletConnect
+    window sends Reown usage events (`pulse.walletconnect.org`). The provider version in use gives
+    no switch to turn those off. Declare it (app activity / app interactions, shared with Reown,
+    optional: only when the user chooses WalletConnect). `privacy.html` says the same.
 - **Financial features**: Play asks whether the app is a crypto exchange or wallet, or offers loans.
   Taproot is a non-custodial merchant console: it holds no funds and exchanges nothing; Seal anchors
   pay a $0.02 fee in ETH. Answer truthfully. If the form asks for a license, stop and tell me: that
