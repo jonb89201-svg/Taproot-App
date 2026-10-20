@@ -24,14 +24,14 @@ ul{padding-left:20px}
 <body>
 <main>
 <h1>Privacy</h1>
-<p class="sub">Taproot — non-custodial USDC payments. Last changed 2026-10-19.</p>
+<p class="sub">Taproot — non-custodial USDC payments. Last changed 2026-10-20.</p>
 <p class="draft">Draft, written with the Play Store listing (see <code>docs/PLAY_STORE.md</code> in the repository). It describes what the code does today.</p>
 
 <h2>What Taproot is</h2>
 <p>Taproot is a static web page you open in a browser or a wallet. There is no account, no sign-up and no server of ours that stores anything about you. The page talks to the Base blockchain through your wallet and through public read endpoints.</p>
 
 <h2>What we collect</h2>
-<p>Nothing. The page has no analytics, no tracking pixels and no login. Settings you change (the contract address you paste, the transactions this console sent) are stored in your own browser's local storage, on your device, and can be cleared by clearing site data.</p>
+<p>Nothing. The page itself has no analytics, no tracking pixels and no login. The one exception is WalletConnect, which runs only if you choose it (see below). Settings you change (the contract address you paste, the transactions this console sent) are stored in your own browser's local storage, on your device, and can be cleared by clearing site data.</p>
 
 <h2>What leaves your device</h2>
 <ul>
@@ -46,6 +46,15 @@ ul{padding-left:20px}
 
 <h2>Wallets</h2>
 <p>Your wallet is yours. Taproot never holds your keys or your funds. Connecting a wallet shows the page your address so it can read your balances and prepare transactions for you to sign.</p>
+
+<h2>WalletConnect</h2>
+<p>If your browser has no wallet of its own (a phone's Safari, for example), Seal offers WalletConnect to link the page with a wallet app. It loads only when you tap to connect. When you use it:</p>
+<ul>
+  <li>The page and your wallet app exchange encrypted messages through WalletConnect's relay, run by Reown (relay.walletconnect.org). The relay sees your IP address and when you connect, not the content of the messages.</li>
+  <li>The wallet list and its icons come from Reown's servers, and Reown checks which site is asking (verify.walletconnect.org).</li>
+  <li>The WalletConnect window sends Reown usage events about how it was used (pulse.walletconnect.org). This version gives the page no switch to turn that off.</li>
+</ul>
+<p>Reown's own privacy policy covers what it does with this: <a href="https://reown.com/privacy-policy">reown.com/privacy-policy</a>. If you would rather not use it, open the page in your wallet app's built-in browser instead.</p>
 
 <h2>Children</h2>
 <p>Taproot is for adults (18 and over).</p>
