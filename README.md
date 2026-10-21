@@ -42,25 +42,28 @@ of it comes back.
 [POSSESSIO](https://github.com/jonb89201-svg/Possessio) — `PossessioPayments`.
 
 **Contract status (2026-10-19).**
-- **The console drives PossessioPayments v3.0.2, the auction sweep.** Incoming USDC above a float is swept
+- **The console drives PossessioPayments v3.0.3, the auction sweep.** Incoming USDC above a float is swept
   on the merchant's schedule: one share deposited to a Morpho USDC vault, the other sold for cbETH in an
   oracle-floored Dutch auction (`kick` / `take`, floor 99% of Chainlink). Money leaves only to payees set 48
   hours in advance, within per-asset daily limits, or through a 7-day emergency path. There is no guardian
   role. The Payments panel covers every write of the contract and the reads that matter, with plain-language
-  labels; the treasury card reads USDC, cbETH and the Morpho position, and checks `isPayee` before a send.
+  labels; the treasury card reads USDC, cbETH and the Morpho position, and checks `isPayee` before a send. Since
+  v3.0.3 the owner role itself moves only through a cancellable 48-hour queue, and the last owner can never be
+  removed: a stolen owner key can no longer lock the merchant out (a council finding of 2026-10-21, fixed before the
+  external review starts).
 - **Review.** The contract was audited and re-audited by POSSESSIO's AI council seats. The external reviewer is
   KupiaSec (Kupia Sec Enterprise): its preliminary findings of 2026-10-15 are fixed in source (Possessio
-  `src/PossessioPayments.sol`), with regression tests. Its full audit of v3.0.2 at Possessio commit `f452037` is
+  `src/PossessioPayments.sol`), with regression tests. Its full audit of v3.0.3 at Possessio commit `9e3f649` is
   scoped (2026-10-21) and starts once the engagement is funded and signed; KupiaSec is auditor of record for the
   versions it reviews, named by commit in its report, and for no other.
-- **Not deployed yet.** v3.0.2 waits on the external review and the redeploy. The instance live on Base
+- **Not deployed yet.** v3.0.3 waits on the external review and the redeploy. The instance live on Base
   mainnet at `0x67247eB2108E7229331127DF1309D624d95467ca` is the pre-fix build; read it as the pre-audit
   deployment.
 - **Launch rail: ready, in preview.** The rail builds v3's `DeployParams` (the eight Base addresses the
   template pins at deploy, the float, the smallest sweep, the two daily limits, the owner as first payee) and
   hashes `artifacts/payments.json` against the factory's `templateCodehash` on chain before any signature.
   The live factory `0x0DD06656…49Bd` pins the pre-fix template, so the rail stays in preview until a factory
-  pinning v3.0.2 is deployed and its address is set.
+  pinning v3.0.3 is deployed and its address is set.
 
 **How the console stays in sync.** `node tools/sync-from-possessio.mjs <Possessio checkout>` regenerates
 `abi/PossessioPayments.abi.json`, `abi/PossessioPayments.wiring.json` (the Base wiring and the `DeployParams`
