@@ -126,7 +126,7 @@ Check after each deploy (both must list the three fingerprints):
   in the user's wallet. Third parties the page talks to: Base RPC endpoints (reads), the Chainlink
   ETH/USD feed (reads), CDNs for `ethers`, `viem` and fonts, Cloudflare for hosting. Answer from
   what the code does.
-  - **WalletConnect** (since 2026-10-20) is the one third party that collects something: when a user
+  - **WalletConnect** (since 2026-10-20) is the one third party the app *shares* data with: when a user
     with no wallet in the browser chooses it, Reown's relay sees the IP address and a per-browser
     WalletConnect client identifier, and the WalletConnect window sends Reown usage events
     (`pulse.walletconnect.org`). **The "connected" event carries the wallet address** (MEASURED
@@ -141,11 +141,15 @@ Check after each deploy (both must list the three fingerprints):
     `privacy.html` says the same.
   - **Cloudflare Web Analytics** is injected at the edge on the `possessio.io` zone (MEASURED
     2026-10-21: the beacon is on `taproot.possessio.io` and `possessio.io`, not on `taproot-app.pages.dev`).
-    The privacy page says the page has no analytics, so it is to be turned off for `taproot.possessio.io`
-    by a Configuration Rule (Disable Real User Monitoring, hostname `taproot.possessio.io`), keeping it on
-    `possessio.io`. **Pending (2026-10-21): the Architect deploys the rule; until the Taproot pages carry no
-    `cloudflareinsights` tag, the privacy page's "no analytics" is not true and the form must not be
-    submitted.** Re-check after any zone change.
+    Kept on, by the Architect's decision of 2026-10-21; `privacy.html` no longer says "no analytics" and
+    describes it under Hosting. Cloudflare is the host processing this on our behalf, so Play counts it as
+    **collected, not shared**; it runs on every page view, so it is **required**, not optional. Declare,
+    purpose Analytics, encrypted in transit:
+    - App activity → **App interactions** (page views).
+    - App info and performance → **Diagnostics** (page load timing).
+
+    Cloudflare's documentation: the script uses no cookies or `localStorage` and does not fingerprint
+    visitors by IP address or user agent.
 - **Financial features**: Play asks whether the app is a crypto exchange or wallet, or offers loans.
   Taproot is a non-custodial merchant console: it holds no funds and exchanges nothing; Seal anchors
   pay a $0.02 fee in ETH. Answer truthfully. If the form asks for a license, stop and tell me: that

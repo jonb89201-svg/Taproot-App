@@ -31,14 +31,14 @@ ul{padding-left:20px}
 <p>Taproot is a static web page you open in a browser or a wallet. There is no account, no sign-up and no server of ours that stores anything about you. The page talks to the Base blockchain through your wallet and through public read endpoints.</p>
 
 <h2>What we collect</h2>
-<p>Nothing. The page itself has no analytics, no tracking pixels and no login. The one exception is WalletConnect, which runs only if you choose it (see below). Settings you change (the contract address you paste, the transactions this console sent) are stored in your own browser's local storage, on your device, and can be cleared by clearing site data.</p>
+<p>No account, no login and no tracking pixels. Two things do report on your visit: Cloudflare's Web Analytics, which our host adds to every page (see Hosting, below), and WalletConnect, which runs only if you choose it (see below). Settings you change (the contract address you paste, the transactions this console sent) are stored in your own browser's local storage, on your device, and can be cleared by clearing site data.</p>
 
 <h2>What leaves your device</h2>
 <ul>
   <li><b>Transactions you sign</b> go from your wallet to the Base network. A blockchain is public: anyone can read them.</li>
   <li><b>Reads</b> of balances, prices and contract state go to public Base RPC endpoints and the Chainlink ETH/USD price feed. Those endpoints see your IP address, as any website's server does.</li>
   <li><b>Scripts and fonts</b> load from content delivery networks (cdnjs, jsDelivr, esm.sh, Google Fonts). They see the request, as for any website that uses them.</li>
-  <li><b>Hosting.</b> The page is served from Cloudflare, which keeps standard server logs.</li>
+  <li><b>Hosting.</b> The page is served from Cloudflare, which keeps standard server logs. Cloudflare also adds its Web Analytics script to each page: it counts page views and measures how fast pages load, and sends that to Cloudflare. It sets no cookies and stores nothing in your browser, and Cloudflare states that it does not fingerprint visitors.</li>
 </ul>
 
 <h2>Seal</h2>
