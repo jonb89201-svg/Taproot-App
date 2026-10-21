@@ -127,10 +127,25 @@ Check after each deploy (both must list the three fingerprints):
   ETH/USD feed (reads), CDNs for `ethers`, `viem` and fonts, Cloudflare for hosting. Answer from
   what the code does.
   - **WalletConnect** (since 2026-10-20) is the one third party that collects something: when a user
-    with no wallet in the browser chooses it, Reown's relay sees the IP address, and the WalletConnect
-    window sends Reown usage events (`pulse.walletconnect.org`). The provider version in use gives
-    no switch to turn those off. Declare it (app activity / app interactions, shared with Reown,
-    optional: only when the user chooses WalletConnect). `privacy.html` says the same.
+    with no wallet in the browser chooses it, Reown's relay sees the IP address and a per-browser
+    WalletConnect client identifier, and the WalletConnect window sends Reown usage events
+    (`pulse.walletconnect.org`). **The "connected" event carries the wallet address** (MEASURED
+    2026-10-21: a throwaway wallet paired over the live relay; Reown's batch held `MODAL_OPEN`,
+    `INITIALIZE`, `CONNECT_SUCCESS` with that wallet's address, `MODAL_CLOSE`). The provider version in
+    use gives no switch to turn those off. Declare, all **collected and shared** with Reown, **optional**
+    (only when the user chooses WalletConnect), encrypted in transit:
+    - Personal info → **User IDs** (the wallet address): app functionality, analytics.
+    - App activity → **App interactions** (the usage events): analytics.
+    - Device or other IDs (the WalletConnect client identifier): app functionality.
+
+    `privacy.html` says the same.
+  - **Cloudflare Web Analytics** is injected at the edge on the `possessio.io` zone (MEASURED
+    2026-10-21: the beacon is on `taproot.possessio.io` and `possessio.io`, not on `taproot-app.pages.dev`).
+    The privacy page says the page has no analytics, so it is to be turned off for `taproot.possessio.io`
+    by a Configuration Rule (Disable Real User Monitoring, hostname `taproot.possessio.io`), keeping it on
+    `possessio.io`. **Pending (2026-10-21): the Architect deploys the rule; until the Taproot pages carry no
+    `cloudflareinsights` tag, the privacy page's "no analytics" is not true and the form must not be
+    submitted.** Re-check after any zone change.
 - **Financial features**: Play asks whether the app is a crypto exchange or wallet, or offers loans.
   Taproot is a non-custodial merchant console: it holds no funds and exchanges nothing; Seal anchors
   pay a $0.02 fee in ETH. Answer truthfully. If the form asks for a license, stop and tell me: that
