@@ -48,10 +48,11 @@ of it comes back.
   hours in advance, within per-asset daily limits, or through a 7-day emergency path. There is no guardian
   role. The Payments panel covers every write of the contract and the reads that matter, with plain-language
   labels; the treasury card reads USDC, cbETH and the Morpho position, and checks `isPayee` before a send.
-- **Review.** The contract was audited and re-audited by POSSESSIO's AI council seats. The external reviewer and
-  auditor of record is KupiaSec (Kupia Sec Enterprise): its preliminary findings of 2026-10-15 are fixed in source
-  (Possessio `src/PossessioPayments.sol`), with regression tests, and its full audit of v3.0.2 is scoped
-  (2026-10-21) and starts once the engagement is funded and signed.
+- **Review.** The contract was audited and re-audited by POSSESSIO's AI council seats. The external reviewer is
+  KupiaSec (Kupia Sec Enterprise): its preliminary findings of 2026-10-15 are fixed in source (Possessio
+  `src/PossessioPayments.sol`), with regression tests. Its full audit of v3.0.2 at Possessio commit `f452037` is
+  scoped (2026-10-21) and starts once the engagement is funded and signed; KupiaSec is auditor of record for the
+  versions it reviews, named by commit in its report, and for no other.
 - **Not deployed yet.** v3.0.2 waits on the external review and the redeploy. The instance live on Base
   mainnet at `0x67247eB2108E7229331127DF1309D624d95467ca` is the pre-fix build; read it as the pre-audit
   deployment.
