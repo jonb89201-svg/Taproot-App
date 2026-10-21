@@ -148,7 +148,7 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
 | `cd test/walletconnect && npm ci && node e2e.mjs` | A real WalletConnect round trip: the page with no wallet, served as `https://taproot.possessio.io`, pairs over the live relay with a throwaway wallet in a second browser profile, which signs and then anchors on an anvil fork of Base mainnet; the page accepts the signature, and the anchor pays the fee wallet exactly the quoted fee, carries the Builder Code and re-verifies. `--mutants` plants four breaks that must each fail, among them a wallet that sends the fee to itself (needs anvil, Playwright and network) |
-| `node test/console.smoke.mjs` | The console (`index.html`) in headless Chromium: loads clean, and nothing of the trading desk is left (needs Playwright) |
+| `node test/console.smoke.mjs` | The console (`index.html`) in headless Chromium: loads clean, and nothing of the trading desk is left (needs Playwright; set `PLAYWRIGHT_MODULE` to the package's directory when it is not on the module path) |
 
 ## License
 MIT — see [LICENSE](LICENSE).
