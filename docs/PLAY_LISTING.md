@@ -18,6 +18,25 @@ text to paste.
   only after production access. (Play Console Help, "App testing requirements for new personal developer accounts".)
 - `npm test`: 112/112 pass.
 
+## Where we got to (from the session log, 2026-10-20)
+- Personal Play developer account, verified 2026-10-19. The Play Console had already locked Taproot's package name
+  to `io.taproot.possessio` from an earlier upload; every bundle has to carry it.
+- PWABuilder took three builds that night: the form resets to its defaults, two came out unsigned or misnamed. The
+  third, signed, with Start URL `/seal`, version `1.1.0`, version code 2, was **accepted by the Play Console at about
+  17:22 UTC** on the internal testing release page, with the release notes below.
+- Play's three signing certificates were downloaded at 17:15 UTC; the asset-links file went live that night (PR #14) and
+  Google's API confirmed all three fingerprints by 23:45 UTC.
+- **12 tester Gmail addresses** were collected by 22:18 UTC (the minimum; 15 to 20 is the safe number) for the closed
+  testing track's email list. The Farcaster tester card and cast text were made ("Shipped by Possessio.io").
+- **Where it stopped, 23:50 UTC:** the closed test could not be sent for review because a new app's **"Set up your
+  app" checklist** on the dashboard has to be complete first: privacy policy, app access, ads, content rating, target
+  audience, data safety, financial features, government apps, category and contact, store listing. The answers are
+  below. After the checklist: Closed testing → Review release → Start rollout, then Publishing overview → Send changes
+  for review. The opt-in link, `https://play.google.com/apps/testing/io.taproot.possessio`, works only once Google's
+  review clears, and the 14 days count only while 12 or more testers are opted in and installed at the same time.
+- Not known from here: whether the checklist was finished, whether the closed test was sent for review, and how many
+  testers have opted in. Those three facts set the calendar below.
+
 ## Before the clock starts: the device check
 Google's page "Device verification requirements for new developer accounts" (read through browse.py 2026-10-26): a new
 personal account must prove it has a real Android phone before an app can go live. Play Console (web) → Home → the task
@@ -51,40 +70,52 @@ Farcaster. Ask 16 so that 12 hold.
 ## Store listing text (Step 5)
 **App name:** Taproot
 **Short description** (80 max, this is 57): `Seal documents with your wallet. Proof on Base for $0.02.`
-**Full description** (4,000 max, this is about 1,900):
+**Full description** (4,000 max; the Seal paragraphs are the ones proven on a phone on 2026-10-20):
 
-Taproot is two tools in one page: Seal, which seals documents with your wallet, and a non-custodial payments console
-for merchants on Base.
+Seal a document with your wallet, and prove it on Base.
 
 SEAL, LIVE TODAY
-Seal hashes a document in your browser, lets the people involved sign that hash with their wallets, and anchors it to
-Base for about two cents. The document itself never leaves your device. Anyone can later check that a file is the one
-that was sealed, and see the moment a file was changed. Use it for a bill of sale, a lease, a quote, a receipt: anything
-two people want to be able to prove later.
+Your file never leaves your phone. Seal takes its fingerprint on your device, and your wallet signs only that
+fingerprint. Signing and checking are free. Need more signers? Send the link: each person opens it, signs and passes
+it on; the seal travels in the link itself, not through a server. Anchor on Base for about two cents in ETH plus
+network gas: one transaction carries as many seals as you add, and each gets its own proof that it existed by that
+block. Change one byte of the file and Verify fails. Connect a wallet app through WalletConnect, or open Taproot inside
+your wallet's own browser.
+
+What a seal proves: which wallets signed which exact file. It does not prove who owns a wallet in real life, and it
+does not make an agreement legally binding. Anchoring is in beta and needs a regular wallet; smart wallets can sign
+seals but cannot anchor them yet.
 
 PAYMENTS CONSOLE
-Accept USDC straight to your own wallet. Taproot is software you run, not a payment processor: no company in the
-middle can hold your balance, reverse a sale or close your account. Payments settle to your wallet and are final. The
-console drives the open-source PossessioPayments contract: incoming USDC above a float is swept on your own schedule,
-part to a Morpho USDC vault and part sold for cbETH in an oracle-floored auction, and money leaves only to payees set
-48 hours in advance, within daily limits. Launching a new payments contract from the app is paused until the
-contract's external review is complete; the console reads and drives contracts that already exist.
+Taproot also carries a non-custodial payments console for merchants on Base: USDC settles straight to your own
+contract and wallet, with no company in the middle that can hold a balance, reverse a sale or close an account.
+Launching a new payments contract from the app is paused until the contract's external review is complete.
 
 WHAT TAPROOT DOES NOT DO
 It never holds your keys or your funds. There is no account and no sign-up. It does not trade, lend or exchange
 anything.
 
-HOW IT WORKS
-The app opens taproot.possessio.io full screen. It needs a wallet: a wallet app's browser, a browser wallet, or
-WalletConnect. Transactions go from your wallet to Base; Taproot only prepares them for you to sign.
-
 OPEN SOURCE
-The code is public at github.com/jonb89201-svg/Taproot-App. Built on Base.
+MIT, at github.com/jonb89201-svg/Taproot-App. Built on Base.
+
+**Release notes:** `Seal documents with your wallet, check seals, and anchor them on Base. Phones can connect a wallet
+app through WalletConnect.`
 
 **Privacy policy URL:** `https://taproot.possessio.io/privacy`
-**Category:** Finance. **Contact email:** yours. **Target audience:** 18 and over.
+**Category:** Productivity, decided 2026-10-20: Seal leads the listing, and Finance invites Play's financial-services questions about a feature that is paused. **Contact email:** yours. **Target audience:** 18 and over.
 **Graphics:** `assets_base/icon_512.png`, `assets_base/feature_1024x500.png`, screenshots `shot5` to `shot8` (Seal)
 first, then `shot1` to `shot4` (console), all 1284×2283.
+
+## The forms, answers that match the code
+- App access: everything works without a login. Ads: none. Content rating: no violence, no user-to-user chat, no
+  gambling; it shows wallet addresses and blockchain transactions. Target audience: 18 and over.
+- Data safety: the page collects nothing and has no accounts. WalletConnect, only when the user picks it: the wallet
+  address (User IDs), usage events (App interactions) and the WalletConnect client identifier (Device IDs), shared
+  with Reown, optional, encrypted in transit. Cloudflare Web Analytics on every page view: App interactions and
+  Diagnostics, collected not shared, required. Files: never collected, hashed on the device. `PLAY_STORE.md` Step 6
+  has the long form.
+- Financial features: Seal is not a financial service; the console is non-custodial, holds no funds and exchanges
+  nothing. If the form asks for a licence, stop and ask.
 
 ## What the listing must not say
 - That the contract is audited. The external review is scoped, not delivered.
