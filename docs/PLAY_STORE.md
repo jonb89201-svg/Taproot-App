@@ -73,12 +73,12 @@ Alternative for a computer with JDK 17 and the Android SDK: `npm i -g @bubblewra
    quantum-ready hybrid signing, `hybrid_classical_cert.der` and `hybrid_pqc_cert.der`. The old
    "App integrity" page now holds the Play Integrity API, not signing (2026-10-20).
 4. Send me the zip. Certificates are public values; the fingerprints are computed from them, never copied.
-5. **Before production: closed testing.** Reported for personal developer accounts created after
-   2023-11-13: production stays locked until a closed test has run with at least 12 opted-in testers
-   for 14 days in a row (organization accounts, which need a D-U-N-S number, are reported exempt).
-   Read from third-party guides on 2026-10-20, not from Google's own page: check what your Play
-   Console shows. If it applies, start the closed test as early as possible; the 14 days are the
-   longest step here.
+5. **Before production: closed testing.** Confirmed on Google's own page (Play Console Help, "App testing
+   requirements for new personal developer accounts", read through browse.py 2026-10-26): personal developer
+   accounts created after 2023-11-13 must run a closed test with at least 12 testers opted in continuously for 14
+   days before applying for production access; Google's review of the application usually takes seven days or less.
+   Your account was verified 2026-10-19, so it applies. The plan, the calendar and the tester invitation are in
+   `PLAY_LISTING.md`. Start the closed test as early as possible; the 14 days are the longest step here.
 
 ## Step 4 (me) — Digital Asset Links: in place since 2026-10-20
 
@@ -116,7 +116,7 @@ Check after each deploy (both must list the three fingerprints):
 - Short description (80 chars max): `Seal documents with your wallet. Proof on Base for $0.02.` (57).
   The old one, `Non-custodial USDC payments on Base. You own the money.`, describes the paused part.
 - Full description: start from the README's first section.
-- Privacy policy URL: `https://taproot.possessio.io/privacy.html` — read the draft first.
+- Privacy policy URL: `https://taproot.possessio.io/privacy` (the `.html` form answers 308 to it, MEASURED 2026-10-26) — read the draft first.
 - Category: Finance. Contact email: yours.
 
 ## Step 6 (you) — the forms Play asks every app
