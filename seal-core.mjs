@@ -570,6 +570,44 @@ export function attachSolanaAnchor(seals, leaves, root, network, signature) {
   return seals.map((s, i) => ({ ...s, anchor: { network, signature, root, proof: merkleProof(leaves, i) } }));
 }
 
+// The payer's wallet. Inside a Farcaster mini app the host offers a Solana wallet (sdk.wallet.getSolanaProvider()),
+// the same one Taproot's earlier Solana leg connected to. Its signAndSendTransaction takes { transaction }, where the
+// transaction only needs serialize(): the SDK base64s what serialize returns and the host rebuilds it with web3.js
+// (@farcaster/miniapp-core 0.6.0, solanaWire, which miniapp-sdk 0.3.0 pins). So Seal hands it the hand-built bytes
+// and the page needs no Solana library. test/solana/crosscheck.mjs runs that exact wire code on these bytes.
+export function solanaWalletTransaction(bytes) {
+  const b = Uint8Array.from(bytes);
+  return { serialize: () => Uint8Array.from(b) };
+}
+
+// Connects and returns the wallet's address. Hosts have handed over three shapes (measured inside Farcaster,
+// 2026-08-05, by Taproot's earlier Solana leg): phantom-style connect(), Wallet Standard, and request-only.
+export async function connectSolanaWallet(provider) {
+  if (!provider) throw new Error("no Solana wallet here");
+  let res, acct;
+  if (typeof provider.connect === "function") { res = await provider.connect(); acct = res?.publicKey ?? provider.publicKey; }
+  else if (typeof provider.features?.["standard:connect"]?.connect === "function") {
+    res = await provider.features["standard:connect"].connect();
+    const a = res?.accounts?.[0] || provider.accounts?.[0]; acct = a?.address ?? a?.publicKey;
+  } else if (typeof provider.request === "function") { res = await provider.request({ method: "connect" }); acct = res?.publicKey ?? provider.publicKey; }
+  else throw new Error("this Solana wallet is a shape Seal doesn't know how to connect to");
+  const address = acct && typeof acct.toBase58 === "function" ? acct.toBase58() : String(acct ?? "");
+  solanaKey(address, "the wallet's address");
+  return address;
+}
+
+// Hands the unsigned anchor to the wallet to sign and send; returns the transaction's signature. Not retried: if the
+// wallet answers oddly, the transaction may already be on chain, so the error says so.
+export async function sendSolanaAnchor(provider, transaction) {
+  if (!provider || typeof provider.signAndSendTransaction !== "function") throw new Error("this Solana wallet can't send transactions");
+  const sent = await provider.signAndSendTransaction({ transaction: solanaWalletTransaction(transaction) });
+  const sig = typeof sent === "string" ? sent : sent?.signature;
+  let b = null;
+  try { b = base58Decode(String(sig ?? "")); } catch { /* reported below */ }
+  if (!b || b.length !== 64) throw new Error("the wallet returned no transaction signature; it may or may not have sent. Check the wallet before trying again.");
+  return sig;
+}
+
 // A JSON-RPC caller for a Solana endpoint: `call(method, params)` returns the result or throws.
 export function solanaRpc(url, fetchImpl = globalThis.fetch) {
   let id = 0;

@@ -214,8 +214,19 @@ console.log("Seal: Solana anchor (offline)");
     const sig = crypto.sign(null, plan.message, kp.privateKey);
     ok(crypto.verify(null, plan.message, kp.publicKey, sig), "a wallet's ed25519 signature over these message bytes verifies");
 
-    // Verifying against a Solana node, stubbed: the node returns the transaction as getTransaction does.
     const sigB58 = S.base58Encode(sig);
+    // The payer's wallet, as the Farcaster mini app hands it over: three connect shapes, and a send that takes bytes.
+    const sendsBack = (answer) => ({ signAndSendTransaction: async ({ transaction }) => { sentBytes = transaction.serialize({ verifySignatures: false }); return answer; } });
+    let sentBytes = null;
+    ok(await S.sendSolanaAnchor(sendsBack({ signature: sigB58 }), plan.transaction) === sigB58 && same([...sentBytes], [...plan.transaction]), "the wallet is handed exactly the anchor's bytes and its signature comes back");
+    await throws(() => S.sendSolanaAnchor(sendsBack({ ok: true }), plan.transaction), /may or may not have sent/, "a wallet that returns no signature is reported, not retried");
+    await throws(() => S.sendSolanaAnchor(sendsBack({ signature: "abc" }), plan.transaction), /may or may not have sent/, "a short signature is not taken for one");
+    ok(await S.connectSolanaWallet({ connect: async () => ({ publicKey: { toBase58: () => payer } }) }) === payer, "a phantom-style wallet connects");
+    ok(await S.connectSolanaWallet({ features: { "standard:connect": { connect: async () => ({ accounts: [{ address: payer }] }) } } }) === payer, "a Wallet Standard wallet connects");
+    ok(await S.connectSolanaWallet({ request: async ({ method }) => (method === "connect" ? { publicKey: payer } : null) }) === payer, "a request-only wallet (Farcaster's shape) connects");
+    await throws(() => S.connectSolanaWallet({ request: async () => ({ publicKey: "0xnope" }) }), /address/, "a wallet that answers with no Solana address is refused");
+
+    // Verifying against a Solana node, stubbed: the node returns the transaction as getTransaction does.
     const anchored = S.attachSolanaAnchor([sealA, sealB], plan.leaves, plan.root, NET, sigB58);
     const nodeTx = (edit = (x) => x) => edit({
       slot: 400000000, blockTime: 1791900060, meta: { err: null },

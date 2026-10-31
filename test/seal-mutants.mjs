@@ -57,6 +57,9 @@ const MUTANTS = [
   ["solana anchor never read", "const at = await checkSolanaAnchor(a, add, solana);", "const at = null;"],
   ["solana link loses the network", "w.u8(2); w.u8(SOLANA[seal.anchor.network].code);", "w.u8(2); w.u8(0);"],
   ["solana anchor network unchecked", 'if (!SOLANA[a.network]) fail("unsupported anchor network " + a.network);', ""],
+  ["solana wallet handed other bytes", "return { serialize: () => Uint8Array.from(b) };", "return { serialize: () => Uint8Array.from(b).subarray(65) };"],
+  ["solana wallet signature not checked", "if (!b || b.length !== 64) throw new Error(\"the wallet returned no transaction signature", "if (false) throw new Error(\"the wallet returned no transaction signature"],
+  ["solana wallet address not checked", 'solanaKey(address, "the wallet\'s address");', ""],
   ["fee wallet changed", 'feeAddress: "0x9Ce4cb26A5F7B50826B07eb8B2C065F0Bb37a6c9",\n  },\n  84532', 'feeAddress: "0x19495180FFA00B8311c85DCF76A89CCbFB174EA0",\n  },\n  84532'],
 ];
 

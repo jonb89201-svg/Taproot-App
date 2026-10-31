@@ -151,7 +151,12 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
     carries this root exactly, it paid the fee wallet, and it paid the fee owed at its block time. Signatures are
     checked as for an unanchored seal (a Solana slot is no moment on Base).
   - A share link carries a Solana anchor too (anchor flag 2); older links open as before.
-  - Not done yet: the page's Solana wallet button, the Solana fee wallet address (`SOLANA[...].feeAddress` is
+  - The payer's wallet is the Solana wallet the Farcaster mini app offers (`sdk.wallet.getSolanaProvider()`, the one
+    Taproot's earlier Solana leg connected to). `connectSolanaWallet` takes the three shapes hosts have handed over,
+    and `sendSolanaAnchor` gives the wallet the hand-built bytes through `serialize()`, which is all the SDK's wire
+    needs; `test/solana/crosscheck.mjs` runs that wire (`@farcaster/miniapp-core` 0.6.0, the version
+    `miniapp-sdk` 0.3.0 pins) and the wallet behind it receives Seal's message byte for byte.
+  - Not done yet: the page's Solana anchor button, the Solana fee wallet address (`SOLANA[...].feeAddress` is
     `null`, so `buildSolanaAnchorTx` refuses), and a measured anchor on Solana devnet and mainnet.
 
 **Tests.** `npm install`, then:
@@ -160,7 +165,7 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
 |---|---|
 | `npm test` | ABI sync (panel, rail wiring and tuple, artifact, treasury fragments), the share cards, the Play asset links (fingerprints recomputed from the committed certificates), plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
-| `cd test/solana && npm ci && node crosscheck.mjs` | The hand-built Solana anchor transaction against `@solana/web3.js`: identical bytes for three fees, a signed copy that web3.js reads back and verifies, and base58 against 50 random keys (offline) |
+| `cd test/solana && npm ci && node crosscheck.mjs` | The hand-built Solana anchor transaction against `@solana/web3.js`: identical bytes for three fees, a signed copy that web3.js reads back and verifies, base58 against 50 random keys, and the anchor sent through the Farcaster mini app's Solana wire (offline) |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
 | `cd test/walletconnect && npm ci && node e2e.mjs` | A real WalletConnect round trip: the page with no wallet, served as `https://taproot.possessio.io`, pairs over the live relay with a throwaway wallet in a second browser profile, which signs and then anchors on an anvil fork of Base mainnet; the page accepts the signature, and the anchor pays the fee wallet exactly the quoted fee, carries the Builder Code and re-verifies. `--mutants` plants four breaks that must each fail, among them a wallet that sends the fee to itself (needs anvil, Playwright and network) |
 | `node test/console.smoke.mjs` | The console (`index.html`) in headless Chromium: loads clean, and nothing of the trading desk is left (needs Playwright; set `PLAYWRIGHT_MODULE` to the package's directory when it is not on the module path) |
