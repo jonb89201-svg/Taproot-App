@@ -144,6 +144,116 @@ ok(!S.smartAccountFrom({ "0x14a34": { atomic: { status: "supported" } } }, 8453)
 ok(!S.smartAccountFrom(null, 8453) && !S.smartAccountFrom({}, 8453) && !S.smartAccountFrom("x", 8453), "no report means a plain wallet");
 await throws(() => S.buildAnchorTx({ chainId: CHAIN, seals: [base], feeWei: 1n }), /signed/, "an unsigned seal cannot be anchored");
 
+// ---------- Solana: the same root, anchored on another network (offline) ----------
+console.log("Seal: Solana anchor (offline)");
+{
+  const crypto = await import("node:crypto");
+  // A throwaway ed25519 payer made here; nothing holds value. Its public key is the last 32 bytes of the SPKI DER.
+  const kp = crypto.generateKeyPairSync("ed25519");
+  const payer = S.base58Encode(kp.publicKey.export({ type: "spki", format: "der" }).subarray(-32));
+  const feeWallet = S.base58Encode(Uint8Array.from({ length: 32 }, (_, i) => i + 1));   // a test address, devnet only
+  const blockhash = S.base58Encode(Uint8Array.from({ length: 32 }, (_, i) => 200 - i));
+  const NET = "solana-devnet";
+
+  // base58: Solana's well-known program ids decode to 32 bytes, and leading zeros survive
+  ok(S.base58Decode(S.SOLANA_SYSTEM_PROGRAM).every((b) => b === 0) && S.base58Decode(S.SOLANA_SYSTEM_PROGRAM).length === 32, "the System Program id is 32 zero bytes");
+  ok(S.base58Decode(S.SOLANA_MEMO_PROGRAM).length === 32 && S.base58Encode(S.base58Decode(S.SOLANA_MEMO_PROGRAM)) === S.SOLANA_MEMO_PROGRAM, "the Memo Program id round-trips");
+  ok(S.base58Encode(Uint8Array.from([0, 0, 1])) === "112" && same([...S.base58Decode("112")], [0, 0, 1]), "base58 keeps leading zero bytes");
+  // Bitcoin's base58 test vector: "Hello World!" -> 2NEpo7TZRRrLZSi2U
+  ok(S.base58Encode(new TextEncoder().encode("Hello World!")) === "2NEpo7TZRRrLZSi2U", "base58 matches the reference vector");
+
+  // the memo: exact text, nothing looser
+  const R = "0x" + "ab".repeat(32);
+  ok(S.solanaMemo(R) === "SEAL1:" + R, "the memo is SEAL1: and the root in lowercase hex");
+  ok(S.decodeSolanaMemo("SEAL1:" + R) === R, "the memo decodes to its root");
+  ok(S.decodeSolanaMemo("SEAL1:" + R + " ") === null && S.decodeSolanaMemo("xSEAL1:" + R) === null && S.decodeSolanaMemo("SEAL1:" + R.toUpperCase().replace("0X", "0x")) === null, "a memo with anything extra, or in upper case, is not a Seal anchor");
+
+  // the fee: $0.02 in SOL, rounded up, refused when the price is far from the moment
+  const at150 = (t) => ({ price: "15000000000", expo: -8, publishTime: t });
+  ok(S.feeLamportsFrom({ ...at150(1000), now: 1000, maxAgeS: 120 }) === 133334n, "$0.02 at $150/SOL is 133,334 lamports (rounded up)");
+  ok(S.feeLamportsFrom({ price: "20000000000", expo: -8, publishTime: 1000, now: 1000, maxAgeS: 120 }) === 100000n, "$0.02 at $200/SOL is exactly 100,000 lamports");
+  await throws(() => S.feeLamportsFrom({ ...at150(1000), now: 1121, maxAgeS: 120 }), /from the moment/, "a price 121 s from the moment it prices is refused");
+  await throws(() => S.feeLamportsFrom({ price: "0", expo: -8, publishTime: 1000, now: 1000, maxAgeS: 120 }), /non-positive/, "a zero price is refused");
+  // Hermes, stubbed: a price at a given time, and today's price, which a verifier must not use for an old anchor.
+  const pyth = (price = "15000000000", latest = "15000000000") => async (url) => {
+    const t = /\/price\/(\d+)\?/.exec(url);
+    if (!t && !/\/price\/latest\?/.test(url)) throw new Error("unexpected " + url);
+    return { parsed: [{ id: S.PYTH_SOL_USD.slice(2), price: { price: t ? price : latest, conf: "1", expo: -8, publish_time: t ? Number(t[1]) : 1791900050 } }] };
+  };
+  ok((await S.quoteSolanaFee(pyth(), NET, 1791900000)).lamports === 133334n, "the live quote reads Pyth's SOL/USD feed");
+
+  // anchoring stays off until a fee wallet is set
+  const sealA = await signed(S.newSeal({ chainId: CHAIN, docHash, title: "Callout, block 1", sealedAt: 1791900000 }), A0);
+  const sealB = await signed(S.newSeal({ chainId: CHAIN, docHash: "0x" + "cd".repeat(32), title: "Callout, block 2", sealedAt: 1791900001 }), A1);
+  await throws(() => S.buildSolanaAnchorTx({ network: "solana-mainnet", seals: [sealA], lamports: 133334n, payer, recentBlockhash: blockhash }), /not enabled on Solana yet/, "Solana mainnet can't anchor until its fee wallet is set");
+  S.SOLANA[NET].feeAddress = feeWallet;
+  try {
+    await throws(() => S.buildSolanaAnchorTx({ network: NET, seals: [base], lamports: 133334n, payer, recentBlockhash: blockhash }), /signed before/, "an unsigned seal can't be anchored on Solana");
+    await throws(() => S.buildSolanaAnchorTx({ network: NET, seals: [sealA], lamports: 133334n, payer: feeWallet, recentBlockhash: blockhash }), /payer can't be the fee wallet/, "the fee wallet can't pay itself");
+    const plan = S.buildSolanaAnchorTx({ network: NET, seals: [sealA, sealB], lamports: 133334n, payer, recentBlockhash: blockhash });
+    const evm = S.buildAnchorTx({ chainId: CHAIN, seals: [sealA, sealB], feeWei: 1n });
+    ok(plan.root === evm.root, "the Solana anchor carries the same root as the Base anchor for the same seals");
+
+    // An independent reading of the bytes, the way a Solana node lays them out.
+    const tx = plan.transaction;
+    ok(tx[0] === 1 && tx.subarray(1, 65).every((b) => b === 0) && same([...tx.subarray(65)], [...plan.message]), "the transaction is one empty signature slot, then the message");
+    const m = plan.message; let i = 0;
+    const hdr = [m[i++], m[i++], m[i++]]; const nk = m[i++]; const keys = [];
+    for (let k = 0; k < nk; k++) { keys.push(S.base58Encode(m.subarray(i, i + 32))); i += 32; }
+    const bh = S.base58Encode(m.subarray(i, i + 32)); i += 32;
+    const nix = m[i++]; const ixs = [];
+    for (let k = 0; k < nix; k++) {
+      const programIdIndex = m[i++]; const na = m[i++]; const accounts = [...m.subarray(i, i + na)]; i += na;
+      const nd = m[i++]; const data = m.subarray(i, i + nd); i += nd;
+      ixs.push({ programIdIndex, accounts, data: S.base58Encode(data), raw: data });
+    }
+    ok(i === m.length, "the message reads to its last byte");
+    ok(same(hdr, [1, 0, 2]) && same(keys, [payer, feeWallet, S.SOLANA_SYSTEM_PROGRAM, S.SOLANA_MEMO_PROGRAM]) && bh === blockhash, "header, account keys and blockhash are laid out as Solana expects");
+    ok(ixs.length === 2 && ixs[0].programIdIndex === 2 && same(ixs[0].accounts, [0, 1]) && same([...ixs[0].raw], [2, 0, 0, 0, 0xd6, 0x08, 0x02, 0, 0, 0, 0, 0]), "instruction 1 is a System transfer of 133,334 lamports, payer to fee wallet");
+    ok(ixs[1].programIdIndex === 3 && ixs[1].accounts.length === 0 && new TextDecoder().decode(ixs[1].raw) === "SEAL1:" + plan.root, "instruction 2 is the Memo carrying SEAL1: and the root");
+    const sig = crypto.sign(null, plan.message, kp.privateKey);
+    ok(crypto.verify(null, plan.message, kp.publicKey, sig), "a wallet's ed25519 signature over these message bytes verifies");
+
+    const sigB58 = S.base58Encode(sig);
+    // The payer's wallet, as the Farcaster mini app hands it over: three connect shapes, and a send that takes bytes.
+    const sendsBack = (answer) => ({ signAndSendTransaction: async ({ transaction }) => { sentBytes = transaction.serialize({ verifySignatures: false }); return answer; } });
+    let sentBytes = null;
+    ok(await S.sendSolanaAnchor(sendsBack({ signature: sigB58 }), plan.transaction) === sigB58 && same([...sentBytes], [...plan.transaction]), "the wallet is handed exactly the anchor's bytes and its signature comes back");
+    await throws(() => S.sendSolanaAnchor(sendsBack({ ok: true }), plan.transaction), /may or may not have sent/, "a wallet that returns no signature is reported, not retried");
+    await throws(() => S.sendSolanaAnchor(sendsBack({ signature: "abc" }), plan.transaction), /may or may not have sent/, "a short signature is not taken for one");
+    ok(await S.connectSolanaWallet({ connect: async () => ({ publicKey: { toBase58: () => payer } }) }) === payer, "a phantom-style wallet connects");
+    ok(await S.connectSolanaWallet({ features: { "standard:connect": { connect: async () => ({ accounts: [{ address: payer }] }) } } }) === payer, "a Wallet Standard wallet connects");
+    ok(await S.connectSolanaWallet({ request: async ({ method }) => (method === "connect" ? { publicKey: payer } : null) }) === payer, "a request-only wallet (Farcaster's shape) connects");
+    await throws(() => S.connectSolanaWallet({ request: async () => ({ publicKey: "0xnope" }) }), /address/, "a wallet that answers with no Solana address is refused");
+
+    // Verifying against a Solana node, stubbed: the node returns the transaction as getTransaction does.
+    const anchored = S.attachSolanaAnchor([sealA, sealB], plan.leaves, plan.root, NET, sigB58);
+    const nodeTx = (edit = (x) => x) => edit({
+      slot: 400000000, blockTime: 1791900060, meta: { err: null },
+      transaction: { signatures: [sigB58], message: { accountKeys: keys, instructions: ixs.map(({ programIdIndex, accounts, data }) => ({ programIdIndex, accounts, data })) } },
+    });
+    const node = (edit) => async (method, params) => { if (method !== "getTransaction" || params[0] !== sigB58) throw new Error("unexpected " + method); return nodeTx(edit); };
+    const sol = (edit, price) => ({ rpc: node(edit), getJson: pyth(price) });
+    r = await S.verifySeal(anchored[1], { solana: sol() });
+    ok(r.ok && r.anchoredAt && r.anchoredAt.by === payer && r.anchoredAt.slot === 400000000, "a Solana-anchored seal verifies: proof, transaction, fee, signature; the anchoring wallet is named");
+    ok(same(await viaLink(anchored[1]), anchored[1]), "a Solana-anchored seal round-trips through a share link");
+    const failed = (edit, price) => S.verifySeal(anchored[0], { solana: sol(edit, price) }).then((x) => x.ok);
+    ok(!(await failed((x) => ({ ...x, meta: { err: { InstructionError: [0, "Custom"] } } }))), "a failed Solana transaction does not anchor");
+    ok(!(await failed((x) => { x.transaction.message.instructions[1].data = S.base58Encode(new TextEncoder().encode(S.solanaMemo("0x" + "00".repeat(32)))); return x; })), "a memo with another root does not anchor");
+    ok(!(await failed((x) => { x.transaction.message.accountKeys = [keys[0], payer.slice(0, -1) + (payer.endsWith("A") ? "B" : "A"), keys[2], keys[3]]; return x; })), "a fee sent to another wallet does not anchor");
+    ok(!(await failed(undefined, "5000000000")), "an anchor that paid the fee for $150/SOL when SOL was $50 at its block time is under-paid");
+    ok(!(await failed(undefined, "14200000000")), "at $142/SOL the same payment is 94.7% of the fee, just outside the 5% tolerance");
+    ok(await failed(undefined, "14500000000"), "at $145/SOL the payment is 96.7% of the fee, within the 5% tolerance");
+    ok(!(await failed((x) => { x.transaction.signatures = [S.base58Encode(new Uint8Array(64).fill(7))]; return x; })), "an RPC answering with another transaction does not anchor");
+    ok(!(await failed(() => null)), "a transaction the node doesn't have does not anchor");
+    const moved = structuredClone(anchored[0]); moved.title = "Callout, block 9";
+    r = await S.verifySeal(moved, { solana: sol() });
+    ok(!r.ok && r.checks.find((c) => c.name === "anchor proof").ok === false, "a changed seal is not in the Solana-anchored batch");
+    await throws(() => S.validateSeal({ ...anchored[0], anchor: { ...anchored[0].anchor, network: "solana-testnet" } }), /network/, "an unknown anchor network is rejected");
+    await throws(() => S.validateSeal({ ...anchored[0], anchor: { ...anchored[0].anchor, signature: "abc" } }), /signature/, "a short Solana signature is rejected");
+  } finally { S.SOLANA[NET].feeAddress = null; }
+}
+
 // ---------- fork ----------
 let anvilBin = null;
 for (const p of [process.env.ANVIL, path.join(process.env.HOME || "", ".foundry/bin/anvil"), "anvil"]) {
