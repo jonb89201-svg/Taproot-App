@@ -139,6 +139,20 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
   - An EIP-7702 account still sends its own transactions, and its anchors verify, so its delegation marker alone
     doesn't refuse it.
 - **Networks.** Base mainnet is the default. Base Sepolia moves test ETH only.
+- **Anchoring on Solana (core only, 2026-10-31; off until a Solana fee wallet is set).** A seal's leaf and its
+  batch's root don't depend on where they're written, so `seal-core.mjs` can also anchor the same root on Solana.
+  Signers still sign the same EIP-712 message; only the anchor moves.
+  - The anchor is one legacy transaction from a regular Solana wallet: a System Program transfer of the fee to the
+    Seal's Solana fee wallet, and a Memo Program v2 instruction whose text is `SEAL1:` plus the root in hex. The
+    wallet that signs it is on chain, so a Solana anchor also names who anchored.
+  - The fee is $0.02 in SOL, priced from Pyth's SOL/USD feed on Hermes, rounded up. A verifier prices it again at
+    the transaction's block time, with the same 5% tolerance as on Base.
+  - The verifier reads the finalized transaction and requires: it succeeded, it is this anchor's transaction, a memo
+    carries this root exactly, it paid the fee wallet, and it paid the fee owed at its block time. Signatures are
+    checked as for an unanchored seal (a Solana slot is no moment on Base).
+  - A share link carries a Solana anchor too (anchor flag 2); older links open as before.
+  - Not done yet: the page's Solana wallet button, the Solana fee wallet address (`SOLANA[...].feeAddress` is
+    `null`, so `buildSolanaAnchorTx` refuses), and a measured anchor on Solana devnet and mainnet.
 
 **Tests.** `npm install`, then:
 
@@ -146,6 +160,7 @@ treasury card's fragments drift from them, and if the rail points at the pre-fix
 |---|---|
 | `npm test` | ABI sync (panel, rail wiring and tuple, artifact, treasury fragments), the share cards, the Play asset links (fingerprints recomputed from the committed certificates), plus the Seal suite (needs Foundry's `anvil`): offline checks; a Base Sepolia fork with a real anchor transaction and ERC-1271/6492 signatures; and a Base mainnet fork that anchors to the real fee wallet, and shows why neither the Treasury Safe (as the fee address) nor a smart wallet (as the sender) works |
 | `node test/seal-mutants.mjs` | Planted breaks: every one must turn the suite red |
+| `cd test/solana && npm ci && node crosscheck.mjs` | The hand-built Solana anchor transaction against `@solana/web3.js`: identical bytes for three fees, a signed copy that web3.js reads back and verifies, and base58 against 50 random keys (offline) |
 | `node test/seal.e2e.mjs` | The page itself in headless Chromium (needs Playwright) |
 | `cd test/walletconnect && npm ci && node e2e.mjs` | A real WalletConnect round trip: the page with no wallet, served as `https://taproot.possessio.io`, pairs over the live relay with a throwaway wallet in a second browser profile, which signs and then anchors on an anvil fork of Base mainnet; the page accepts the signature, and the anchor pays the fee wallet exactly the quoted fee, carries the Builder Code and re-verifies. `--mutants` plants four breaks that must each fail, among them a wallet that sends the fee to itself (needs anvil, Playwright and network) |
 | `node test/console.smoke.mjs` | The console (`index.html`) in headless Chromium: loads clean, and nothing of the trading desk is left (needs Playwright; set `PLAYWRIGHT_MODULE` to the package's directory when it is not on the module path) |

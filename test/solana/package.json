@@ -1,0 +1,1 @@
+{"name":"taproot-seal-solana-crosscheck","private":true,"type":"module","dependencies":{"@solana/web3.js":"1.98.0","viem":"2.21.54"}}
